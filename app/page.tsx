@@ -2,18 +2,46 @@ import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <main className="main" style={{ minHeight: "100vh", display: "grid", alignContent: "center" }}>
-      <div className="card" style={{ maxWidth: 760, padding: 28 }}>
-        <div className="status"><span className="dot" /> Belgische bedrijfsadministratie, simpel uitgelegd</div>
-        <h1 style={{ fontSize: "clamp(2.2rem, 7vw, 4.6rem)", lineHeight: 1, margin: "22px 0 18px" }}>We maken administratie begrijpelijk.</h1>
-        <p className="muted" style={{ fontSize: "1.08rem", lineHeight: 1.7 }}>
-          Upload facturen en documenten. De app leest, controleert en legt uit wat er gebeurt. Belangrijke cijfers blijven traceerbaar naar hun bron en fiscale regels worden niet door AI verzonnen.
+    <main className="landing-page">
+      <header className="landing-header">
+        <div className="brand-mark">AI Bedrijfsadministratie</div>
+        <Link className="button secondary" href="/login">Inloggen</Link>
+      </header>
+
+      <section className="landing-hero">
+        <div className="eyebrow">Voor Belgische ondernemers</div>
+        <h1>Je administratie begrijpen zonder boekhouderstaal.</h1>
+        <p className="hero-copy">
+          Eén rustige plek voor je bedrijfsgegevens, facturen, documenten, deadlines en uitleg. De app helpt je zien wat in orde is, wat nog aandacht vraagt en waar bedragen vandaan komen.
         </p>
-        <div className="row" style={{ marginTop: 22 }}>
-          <Link className="button" href="/onboarding">Mijn bedrijf instellen</Link>
-          <Link className="button secondary" href="/dashboard">Bekijk demo-dashboard</Link>
+        <div className="row hero-actions">
+          <Link className="button" href="/login">Start met mijn bedrijf</Link>
+          <Link className="button secondary" href="/dashboard">Bekijk voorbeeld</Link>
         </div>
-      </div>
+        <div className="trust-row" aria-label="Belangrijkste betrouwbaarheidsprincipes">
+          <span>Bronnen controleerbaar</span>
+          <span>Bedrijfsdata afgeschermd</span>
+          <span>Geen fiscale zekerheid uit vrije AI</span>
+        </div>
+      </section>
+
+      <section className="landing-grid">
+        <article className="card feature-card">
+          <div className="feature-number">01</div>
+          <h2>Zie wat je moet doen</h2>
+          <p className="muted">Geen overvolle administratie. Alleen relevante acties, waarschuwingen en deadlines voor jouw bedrijf.</p>
+        </article>
+        <article className="card feature-card">
+          <div className="feature-number">02</div>
+          <h2>Begrijp je cijfers</h2>
+          <p className="muted">Omzet, kosten en schattingen worden eenvoudig uitgelegd en blijven traceerbaar naar de onderliggende gegevens.</p>
+        </article>
+        <article className="card feature-card">
+          <div className="feature-number">03</div>
+          <h2>Hou controle</h2>
+          <p className="muted">AI helpt lezen en voorstellen doen, maar twijfel wordt zichtbaar gemaakt en belangrijke beslissingen blijven controleerbaar.</p>
+        </article>
+      </section>
     </main>
   );
 }
