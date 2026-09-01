@@ -35,8 +35,8 @@ create trigger enforce_invoice_document_company
 before insert or update of company_id, document_id on public.invoices
 for each row execute function public.enforce_invoice_document_company();
 
--- Audit-like actor fields must represent the authenticated user and must not be
--- freely spoofable by another member of the same company.
+-- Audit-like actor fields must represent the real authenticated user. Keep uploader
+-- immutable so future collaborators can edit a document without taking ownership of it.
 drop policy if exists "documents_member_all" on public.documents;
 
 create policy "documents_member_select"
@@ -56,15 +56,33 @@ create policy "documents_member_update"
 on public.documents for update
 to authenticated
 using (public.is_company_member(company_id))
-with check (
-  public.is_company_member(company_id)
-  and uploaded_by = auth.uid()
-);
+with check (public.is_company_member(company_id));
 
 create policy "documents_member_delete"
 on public.documents for delete
 to authenticated
 using (public.is_company_member(company_id));
+
+create or replace function public.protect_document_uploader()
+returns trigger
+language plpgsql
+security invoker
+set search_path = public
+as $$
+begin
+  if new.uploaded_by is distinct from old.uploaded_by then
+    raise exception 'uploaded_by cannot be changed';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.protect_document_uploader() from public;
+
+drop trigger if exists protect_document_uploader on public.documents;
+create trigger protect_document_uploader
+before update of uploaded_by on public.documents
+for each row execute function public.protect_document_uploader();
 
 create or replace function public.protect_invoice_approval_actor()
 returns trigger
@@ -133,7 +151,7 @@ before insert or update of completed_by on public.deadlines
 for each row execute function public.protect_deadline_completion_actor();
 
 -- AI interaction records are audit data. A client may only create a record for
--- itself, and the actor identity cannot later be rewritten.
+-- itself, and actor identity cannot later be rewritten or deleted from the client.
 drop policy if exists "ai_interactions_member_all" on public.ai_interactions;
 
 create policy "ai_interactions_member_select"
@@ -160,8 +178,5 @@ with check (
   public.is_company_member(company_id)
   and user_id = auth.uid()
 );
-
--- Audit-style AI interaction rows should not be deletable from the client.
--- Service-role/server maintenance remains possible because service role bypasses RLS.
 
 commit;
