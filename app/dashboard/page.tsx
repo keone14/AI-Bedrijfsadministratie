@@ -1,4 +1,5 @@
 import Link from "next/link";
+import "./dashboard.css";
 
 const nav = [
   { label: "Dashboard", href: "/dashboard", active: true },
