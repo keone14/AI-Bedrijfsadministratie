@@ -132,6 +132,15 @@ export default function OnboardingPage() {
             <p className="muted">We vullen dit nooit zelf in op basis van een gok.</p>
             <div className="section-block">
               <div className="field-title">Ben je btw-plichtig? ⓘ</div>
+              <div className="verification-guide" role="note">
+                <strong>Niet zeker? Zo controleer je het officieel.</strong>
+                <ol>
+                  <li>Zoek je ondernemingsnummer gratis op in de <a href="https://kbopub.economie.fgov.be/kbopub-m/home?lang=nl" target="_blank" rel="noreferrer">KBO Public Search</a>.</li>
+                  <li>Kijk bij <strong>Hoedanigheden</strong>. Staat daar <strong>“Onderworpen aan btw”</strong>, dan is je onderneming bij de btw geregistreerd.</li>
+                  <li>Je kunt de geldigheid van je btw-nummer ook controleren via de officiële <a href="https://financien.belgium.be/nl/ondernemingen/btw/internationaal/europees-btw-nummer-controleren" target="_blank" rel="noreferrer">FOD Financiën-pagina voor btw-nummercontrole</a>.</li>
+                </ol>
+                <p>Let op: btw-plichtig zijn betekent niet automatisch dat je op elke factuur btw moet aanrekenen. Er bestaan vrijstellingen en bijzondere regelingen. Kies daarom <strong>Ik weet het niet</strong> als je twijfelt. Dan tonen we geen definitieve btw-deadlines tot dit bevestigd is.</p>
+              </div>
               <div className="choice-grid three">
                 <Choice active={form.vatStatus === "yes"} onClick={() => update("vatStatus", "yes")}><strong>Ja</strong><span>Ik weet dat mijn onderneming btw-plichtig is.</span></Choice>
                 <Choice active={form.vatStatus === "no"} onClick={() => update("vatStatus", "no")}><strong>Nee</strong><span>Ik weet dat mijn onderneming niet btw-plichtig is.</span></Choice>
