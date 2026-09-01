@@ -84,6 +84,22 @@ export default function FacturenPage() {
           </details>
         </section>
 
+        <section className="card invoice-compliance-card" aria-labelledby="einvoice-title">
+          <div className="eyebrow">Belangrijk sinds 1 januari 2026</div>
+          <h2 id="einvoice-title">Een PDF uploaden is niet hetzelfde als een verplichte B2B e-factuur.</h2>
+          <p>Voor quasi alle facturen tussen Belgische btw-plichtige ondernemingen is sinds 1 januari 2026 een <strong>gestructureerde elektronische factuur</strong> nodig. Een gewone PDF via e-mail volstaat daarvoor niet.</p>
+          <details className="help-details">
+            <summary>Wat betekent dit voor mij?</summary>
+            <div className="help-details-body">
+              <div><strong>Wat is een gestructureerde e-factuur?</strong><p>Dat is een factuur in een vast computerleesbaar formaat zodat twee softwaresystemen de gegevens rechtstreeks kunnen uitwisselen. In België gebeurt dit in principe via Peppol.</p></div>
+              <div><strong>Waarom kan ik dan later nog PDF&apos;s uploaden?</strong><p>PDF, JPG en PNG blijven nuttig om bestaande documenten te bewaren, te lezen en administratief te verwerken. Zo&apos;n upload bewijst op zichzelf niet dat je aan de B2B e-facturatieplicht hebt voldaan.</p></div>
+              <div><strong>Geldt dit voor elke factuur?</strong><p>Nee. Er zijn uitzonderingen en de verplichting verschilt bijvoorbeeld bij particuliere klanten of bepaalde andere situaties. De app mag daarom nooit alleen op basis van het bestandstype beslissen dat je wettelijk in orde bent.</p></div>
+              <div><strong>Hoe controleer ik dit officieel?</strong><p>Gebruik de officiële Belgische e-facturatiesite van de overheid. Daar staat voor wie de verplichting geldt en hoe Peppol werkt.</p></div>
+            </div>
+          </details>
+          <p className="source-note">Bron: e-factuur België, officiële overheidsinformatie. Regel gecontroleerd op 2 september 2026.</p>
+        </section>
+
         <section className="invoice-toolbar card" aria-label="Factuurfilters">
           <div className="invoice-search-placeholder" aria-disabled="true">Zoek later bv. Meta, €242 of marketing</div>
           <div className="invoice-filter-row" aria-label="Voorbeeldfilters">
@@ -96,7 +112,7 @@ export default function FacturenPage() {
         <section className="card invoices-empty-state">
           <div className="empty-icon" aria-hidden="true">↥</div>
           <h2>Nog geen facturen</h2>
-          <p className="muted">Zodra veilige upload actief is, kun je PDF-, JPG- en PNG-facturen toevoegen. Je hoeft vooraf niet te weten of iets een aankoop- of verkoopfactuur is en je hoeft geen categorie te kiezen.</p>
+          <p className="muted">Zodra veilige upload actief is, kun je PDF-, JPG- en PNG-facturen toevoegen om ze te bewaren en verwerken. Dat staat los van de vraag of een factuur volgens de Belgische regels ook als gestructureerde e-factuur via Peppol moet worden uitgewisseld.</p>
           <div className="empty-state-steps" aria-label="Toekomstige factuurflow">
             <span><strong>1.</strong> Jij uploadt</span>
             <span><strong>2.</strong> Wij lezen en controleren</span>
