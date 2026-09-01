@@ -115,6 +115,12 @@ button:disabled { cursor: wait; opacity: .7; }
 .choice-card span { color: var(--muted); line-height: 1.4; font-size: .9rem; }
 .choice-card:hover { border-color: #aeb8c3; }
 .choice-card.active { border-color: var(--accent); background: #f5f9fa; box-shadow: inset 0 0 0 1px var(--accent); }
+.verification-guide { border: 1px solid #d8e3e8; background: #f8fbfc; border-radius: 12px; padding: 16px 18px; color: #344054; line-height: 1.55; }
+.verification-guide strong { color: var(--text); }
+.verification-guide ol { margin: 10px 0 8px; padding-left: 22px; }
+.verification-guide li + li { margin-top: 7px; }
+.verification-guide p { margin: 10px 0 0; color: var(--muted); font-size: .92rem; }
+.verification-guide a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; font-weight: 700; }
 .onboarding-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 30px; }
 .onboarding-notice { margin-top: 22px; }
 .summary-card { padding: 8px 20px; }
@@ -149,6 +155,7 @@ button:disabled { cursor: wait; opacity: .7; }
   .progress-track { margin: 18px 0 38px; }
   .choice-grid { grid-template-columns: 1fr; }
   .choice-card { min-height: auto; }
+  .verification-guide { padding: 14px; }
   .summary-row { grid-template-columns: 1fr; gap: 4px; }
   .onboarding-actions { position: sticky; bottom: 0; background: linear-gradient(to top, var(--bg) 72%, rgba(246,247,249,0)); padding: 18px 0 4px; }
 }
