@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function OnboardingPage() {
   return (
     <main className="main" style={{ maxWidth: 760 }}>
@@ -27,7 +29,7 @@ export default function OnboardingPage() {
           </div>
 
           <div className="row" style={{ justifyContent: "space-between", marginTop: 8 }}>
-            <a className="button secondary" href="/">Terug</a>
+            <Link className="button secondary" href="/">Terug</Link>
             <button className="button" type="button">Volgende</button>
           </div>
         </form>
