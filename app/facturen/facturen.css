@@ -4,6 +4,10 @@
 .invoices-heading p { max-width: 760px; line-height: 1.6; }
 .invoice-safety-card { display: grid; gap: 16px; }
 .invoice-safety-card > div > p { margin: 10px 0 0; max-width: 820px; line-height: 1.55; }
+.invoice-compliance-card { display: grid; gap: 12px; border-color: #d8e3e8; background: #fbfdfe; }
+.invoice-compliance-card h2 { margin: 0; font-size: clamp(1.2rem, 2.5vw, 1.55rem); letter-spacing: -.025em; }
+.invoice-compliance-card > p { margin: 0; max-width: 850px; line-height: 1.6; color: #475467; }
+.invoice-compliance-card .source-note { padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
 .invoice-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .invoice-search-placeholder { flex: 1; min-width: 220px; border: 1px solid var(--line); background: #fafbfc; color: #98a2b3; border-radius: 10px; padding: 11px 13px; }
 .invoice-filter-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -36,6 +40,7 @@
 @media (max-width: 560px) {
   .invoices-main { gap: 16px; }
   .invoices-heading { gap: 14px; }
+  .invoice-compliance-card { padding: 17px; }
   .invoices-empty-state { padding: 32px 16px; }
   .empty-state-steps { display: grid; width: 100%; }
   .empty-state-steps span { text-align: left; }
