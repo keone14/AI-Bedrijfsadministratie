@@ -57,7 +57,7 @@ button:disabled { cursor: wait; opacity: .7; }
   transition: background .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
 .button:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.button:focus-visible, .input:focus-visible, .choice-card:focus-visible, .text-button:focus-visible { outline: 3px solid rgba(49, 95, 115, .16); outline-offset: 2px; }
+.button:focus-visible, .input:focus-visible, .choice-card:focus-visible, .text-button:focus-visible, .help-details summary:focus-visible { outline: 3px solid rgba(49, 95, 115, .16); outline-offset: 2px; }
 .button.secondary { background: #ffffff; color: var(--text); border: 1px solid #d0d5dd; }
 .button.secondary:hover { background: var(--panel-2); border-color: #c2c8d0; }
 .input { width: 100%; background: #ffffff; border: 1px solid #d0d5dd; color: var(--text); border-radius: 10px; padding: 12px 13px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.025); }
@@ -73,8 +73,10 @@ button:disabled { cursor: wait; opacity: .7; }
 .eyebrow { color: var(--accent); font-size: .82rem; font-weight: 750; text-transform: uppercase; letter-spacing: .08em; }
 .hero-copy { color: #475467; font-size: 1.08rem; line-height: 1.7; max-width: 720px; }
 .notice { border: 1px solid #d8e3e8; background: #f3f7f8; color: #294f60; border-radius: 10px; padding: 11px 13px; line-height: 1.45; }
+.success-notice { border-color: #cce2d7; background: #f4faf7; color: #245b43; }
 .text-button { appearance: none; border: 0; padding: 0; background: transparent; color: var(--accent); font-weight: 700; }
 .align-left { justify-self: start; }
+.official-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; font-weight: 700; }
 
 .landing-page { min-height: 100vh; max-width: 1180px; margin: 0 auto; padding: 24px 32px 48px; }
 .landing-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
@@ -120,14 +122,20 @@ button:disabled { cursor: wait; opacity: .7; }
 .verification-guide ol { margin: 10px 0 8px; padding-left: 22px; }
 .verification-guide li + li { margin-top: 7px; }
 .verification-guide p { margin: 10px 0 0; color: var(--muted); font-size: .92rem; }
-.verification-guide a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; font-weight: 700; }
+.help-details { border-top: 1px solid var(--line); padding-top: 9px; }
+.help-details summary { width: fit-content; color: var(--accent); cursor: pointer; font-weight: 700; font-size: .9rem; list-style-position: outside; }
+.help-details-body { display: grid; gap: 12px; margin-top: 12px; border: 1px solid #dfe5e9; background: #fbfcfd; border-radius: 11px; padding: 15px; }
+.help-details-body > div { display: grid; gap: 3px; }
+.help-details-body strong { font-size: .88rem; color: var(--text); }
+.help-details-body p, .help-copy { margin: 0; color: var(--muted); font-size: .9rem; line-height: 1.55; }
 .onboarding-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 30px; }
 .onboarding-notice { margin-top: 22px; }
 .summary-card { padding: 8px 20px; }
-.summary-row { display: grid; grid-template-columns: minmax(150px, .8fr) 1.5fr; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line); align-items: start; }
+.summary-row { display: grid; grid-template-columns: minmax(140px, .75fr) minmax(0, 1.5fr) auto; gap: 18px; padding: 14px 0; border-bottom: 1px solid var(--line); align-items: start; }
 .summary-row:last-child { border-bottom: 0; }
 .summary-row span { color: var(--muted); }
 .summary-row strong { word-break: break-word; }
+.summary-edit { white-space: nowrap; }
 
 @media (max-width: 900px) {
   .shell { display: block; padding-bottom: 72px; }
@@ -156,6 +164,9 @@ button:disabled { cursor: wait; opacity: .7; }
   .choice-grid { grid-template-columns: 1fr; }
   .choice-card { min-height: auto; }
   .verification-guide { padding: 14px; }
-  .summary-row { grid-template-columns: 1fr; gap: 4px; }
+  .help-details-body { padding: 13px; }
+  .summary-row { grid-template-columns: 1fr auto; gap: 5px 12px; }
+  .summary-row strong { grid-column: 1 / -1; grid-row: 2; }
+  .summary-edit { grid-column: 2; grid-row: 1; justify-self: end; }
   .onboarding-actions { position: sticky; bottom: 0; background: linear-gradient(to top, var(--bg) 72%, rgba(246,247,249,0)); padding: 18px 0 4px; }
 }
