@@ -3,7 +3,7 @@ import "./dashboard.css";
 
 const nav = [
   { label: "Dashboard", href: "/dashboard", active: true },
-  { label: "Facturen", href: null },
+  { label: "Facturen", href: "/facturen" },
   { label: "Documenten", href: null },
   { label: "Deadlines", href: null },
   { label: "Assistent", href: null },
@@ -137,6 +137,7 @@ export default function DashboardPage() {
             <div className="empty-state">
               <strong>Nog geen facturen toegevoegd</strong>
               <p className="muted">De factuur-upload wordt pas geactiveerd wanneer de veilige opslag en bedrijfsscheiding volledig gekoppeld en getest zijn.</p>
+              <Link className="text-button" href="/facturen">Bekijk hoe facturen straks werken</Link>
             </div>
           </article>
         </section>
@@ -144,7 +145,7 @@ export default function DashboardPage() {
 
       <nav className="mobile-nav" aria-label="Mobiele navigatie">
         <Link className="active" href="/dashboard">Home</Link>
-        <span aria-disabled="true">Facturen</span>
+        <Link href="/facturen">Facturen</Link>
         <Link href="/onboarding">Bedrijf</Link>
         <span aria-disabled="true">Deadlines</span>
         <span aria-disabled="true">Meer</span>
