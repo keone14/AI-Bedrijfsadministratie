@@ -68,15 +68,25 @@ export default function DashboardPage() {
             <h1>Je administratie, zonder giswerk.</h1>
             <p className="muted">We tonen pas cijfers en statussen zodra we genoeg betrouwbare gegevens hebben.</p>
           </div>
-          <Link className="button secondary" href="/onboarding">Bedrijfsgegevens controleren</Link>
+          <Link className="button secondary" href="/onboarding">Bedrijfsgegevens bekijken</Link>
         </header>
 
         <section className="card dashboard-status-card" aria-labelledby="status-title">
           <div className="status status-neutral"><span className="dot dot-neutral" /><span id="status-title">Nog niet genoeg gegevens om je administratie te beoordelen</span></div>
           <p className="muted">Dat is bewust. Zonder bevestigde bedrijfsgegevens en facturen zeggen we niet dat alles in orde is.</p>
-          <div className="row">
-            <Link className="button" href="/onboarding">Maak je bedrijfsprofiel compleet</Link>
-          </div>
+        </section>
+
+        <section className="card dashboard-status-card" aria-labelledby="preview-data-title">
+          <div className="status status-neutral"><span className="dot dot-neutral" /><span id="preview-data-title">Deze preview bewaart je onboardinggegevens nog niet als bedrijfsdossier</span></div>
+          <p className="muted">Je kunt de onboarding al doorlopen en controleren, maar we doen niet alsof die gegevens veilig opgeslagen zijn zolang de juiste Supabase-database en bedrijfsscheiding niet ondubbelzinnig gekoppeld en getest zijn.</p>
+          <details className="help-details dashboard-help">
+            <summary>Waarom wachten we hiermee?</summary>
+            <div className="help-details-body">
+              <div><strong>Wat moet eerst kloppen?</strong><p>Elke gebruiker mag alleen gegevens van zijn eigen bedrijf kunnen zien of wijzigen. Dat wordt afgedwongen met authenticatie, company_id en Row Level Security.</p></div>
+              <div><strong>Waarom niet tijdelijk opslaan?</strong><p>We kiezen bewust niet voor een snelle nep-oplossing in de browser. Bedrijfsgegevens horen in gecontroleerde opslag met duidelijke toegangsregels.</p></div>
+              <div><strong>Wat gebeurt er daarna?</strong><p>Zodra de veilige databasekoppeling bevestigd is, kan de onboarding echt opslaan en wordt dit dashboard gevuld met gegevens die aantoonbaar bij jouw bedrijf horen.</p></div>
+            </div>
+          </details>
         </section>
 
         <section className="grid grid-4 dashboard-metrics" aria-label="Financieel overzicht">
@@ -98,15 +108,15 @@ export default function DashboardPage() {
 
         <section className="dashboard-lower-grid">
           <article className="card action-card">
-            <div className="card-heading-row"><h2>Wat moet ik nu doen?</h2><span className="soft-badge">1 stap</span></div>
+            <div className="card-heading-row"><h2>Wat moet er nu gebeuren?</h2><span className="soft-badge">Veiligheid eerst</span></div>
             <div className="action-item">
               <div className="action-number">1</div>
               <div>
-                <strong>Maak je bedrijfsprofiel compleet</strong>
-                <p className="muted">Daarna weten we welke onderdelen en toekomstige deadlines mogelijk voor jouw bedrijf relevant zijn.</p>
+                <strong>Veilige bedrijfsopslag koppelen en testen</strong>
+                <p className="muted">Pas daarna slaan we je onboardinggegevens echt op en activeren we facturen, dashboardberekeningen en deadlines.</p>
               </div>
             </div>
-            <Link className="button" href="/onboarding">Ga verder met instellen</Link>
+            <Link className="button secondary" href="/onboarding">Onboarding verder controleren</Link>
           </article>
 
           <article className="card">
@@ -126,7 +136,7 @@ export default function DashboardPage() {
             <h2>Recente facturen</h2>
             <div className="empty-state">
               <strong>Nog geen facturen toegevoegd</strong>
-              <p className="muted">De factuur-upload wordt pas geactiveerd wanneer de veilige opslag en bedrijfsscheiding volledig gekoppeld zijn.</p>
+              <p className="muted">De factuur-upload wordt pas geactiveerd wanneer de veilige opslag en bedrijfsscheiding volledig gekoppeld en getest zijn.</p>
             </div>
           </article>
         </section>
