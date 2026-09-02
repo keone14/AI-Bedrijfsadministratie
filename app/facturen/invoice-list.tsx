@@ -134,13 +134,14 @@ export default async function InvoiceList() {
           const job = jobs.get(invoice.id);
           const document = documents.get(invoice.document_id);
           const rows = extractions.get(invoice.id) ?? [];
-          const uncertainFields = rows.filter(needsAttention);
           const corrected = correctedFields.get(invoice.id) ?? new Set<string>();
+          const uncertainFields = rows.filter(needsAttention).filter((row) => !corrected.has(row.field_name));
           const label = statusLabel(invoice, job, document);
           const hasExtraction = rows.length > 0 || Boolean(invoice.supplier_name || invoice.customer_name || invoice.total !== null);
           const isConfirmed = invoice.review_status === "confirmed";
           const isAutoVerified = invoice.review_status === "auto_verified";
           const requiresReview = job?.status === "needs_review" && !isConfirmed;
+          const canReviewOrCorrect = hasExtraction && !isConfirmed && job?.status !== "processing" && job?.status !== "failed";
 
           return (
             <article className="card invoice-record-card" key={invoice.id}>
@@ -155,7 +156,7 @@ export default async function InvoiceList() {
                 <>
                   <div className="invoice-confidence-note">
                     <strong>{isConfirmed ? "Jij hebt deze uitlezing bevestigd." : isAutoVerified ? "De automatische controles zijn geslaagd." : "Deze factuur moet nog even nagekeken worden."}</strong>
-                    <span>{isConfirmed ? "De bevestiging en het tijdstip worden als auditspoor bewaard." : confidenceCopy(invoice.extraction_confidence)}</span>
+                    <span>{isConfirmed ? "De bevestiging en het tijdstip worden als auditspoor bewaard." : isAutoVerified ? "Je hoeft niets te doen, maar je kunt de gegevens wel aanpassen als je toch iets fout ziet." : confidenceCopy(invoice.extraction_confidence)}</span>
                   </div>
 
                   {corrected.size ? (
@@ -177,7 +178,7 @@ export default async function InvoiceList() {
                     <div><span>Omschrijving</span><strong>{invoice.description ?? "Niet zeker / niet gevonden"}</strong></div>
                   </div>
 
-                  {requiresReview ? (
+                  {canReviewOrCorrect ? (
                     <InvoiceReviewActions
                       invoiceId={invoice.id}
                       values={{
