@@ -1,5 +1,6 @@
 import Link from "next/link";
 import "./dashboard.css";
+import LogoutButton from "./logout-button";
 
 const nav = [
   { label: "Dashboard", href: "/dashboard", active: true },
@@ -68,23 +69,26 @@ export default function DashboardPage() {
             <h1>Je administratie, zonder giswerk.</h1>
             <p className="muted">We tonen pas cijfers en statussen zodra we genoeg betrouwbare gegevens hebben.</p>
           </div>
-          <Link className="button secondary" href="/onboarding">Bedrijfsgegevens bekijken</Link>
+          <div className="dashboard-heading-actions">
+            <Link className="button secondary" href="/onboarding">Bedrijfsgegevens bekijken</Link>
+            <LogoutButton />
+          </div>
         </header>
 
         <section className="card dashboard-status-card" aria-labelledby="status-title">
           <div className="status status-neutral"><span className="dot dot-neutral" /><span id="status-title">Nog niet genoeg gegevens om je administratie te beoordelen</span></div>
-          <p className="muted">Dat is bewust. Zonder bevestigde bedrijfsgegevens en facturen zeggen we niet dat alles in orde is.</p>
+          <p className="muted">Dat is bewust. Zonder bevestigde facturen zeggen we niet dat alles in orde is.</p>
         </section>
 
-        <section className="card dashboard-status-card" aria-labelledby="preview-data-title">
-          <div className="status status-neutral"><span className="dot dot-neutral" /><span id="preview-data-title">Deze preview bewaart je onboardinggegevens nog niet als bedrijfsdossier</span></div>
-          <p className="muted">Je kunt de onboarding al doorlopen en controleren, maar we doen niet alsof die gegevens veilig opgeslagen zijn zolang de juiste Supabase-database en bedrijfsscheiding niet ondubbelzinnig gekoppeld en getest zijn.</p>
+        <section className="card dashboard-status-card" aria-labelledby="profile-data-title">
+          <div className="status status-neutral"><span className="dot dot-neutral" /><span id="profile-data-title">Je bedrijfsprofiel kan veilig worden opgeslagen en opnieuw geladen</span></div>
+          <p className="muted">Onboardinggegevens worden gekoppeld aan het bedrijf waarvoor je toegang hebt. Onbekende of onbevestigde gegevens blijven als onzeker behandeld en worden niet stilletjes als fiscale waarheid gebruikt.</p>
           <details className="help-details dashboard-help">
-            <summary>Waarom wachten we hiermee?</summary>
+            <summary>Wat betekent dit?</summary>
             <div className="help-details-body">
-              <div><strong>Wat moet eerst kloppen?</strong><p>Elke gebruiker mag alleen gegevens van zijn eigen bedrijf kunnen zien of wijzigen. Dat wordt afgedwongen met authenticatie, company_id en Row Level Security.</p></div>
-              <div><strong>Waarom niet tijdelijk opslaan?</strong><p>We kiezen bewust niet voor een snelle nep-oplossing in de browser. Bedrijfsgegevens horen in gecontroleerde opslag met duidelijke toegangsregels.</p></div>
-              <div><strong>Wat gebeurt er daarna?</strong><p>Zodra de veilige databasekoppeling bevestigd is, kan de onboarding echt opslaan en wordt dit dashboard gevuld met gegevens die aantoonbaar bij jouw bedrijf horen.</p></div>
+              <div><strong>Waar worden je gegevens bewaard?</strong><p>In de beveiligde bedrijfsdatabase, gekoppeld aan je account en bedrijf.</p></div>
+              <div><strong>Wie kan ze zien?</strong><p>Alleen ingelogde gebruikers met een geldige relatie tot dat bedrijf. De database dwingt deze scheiding af met Row Level Security.</p></div>
+              <div><strong>Wat gebeurt er met twijfel?</strong><p>Gegevens die je niet weet of nog niet bevestigd hebt, blijven zichtbaar als onzeker en sturen geen definitieve deadlines of conclusies aan.</p></div>
             </div>
           </details>
         </section>
@@ -112,11 +116,11 @@ export default function DashboardPage() {
             <div className="action-item">
               <div className="action-number">1</div>
               <div>
-                <strong>Veilige bedrijfsopslag koppelen en testen</strong>
-                <p className="muted">Pas daarna slaan we je onboardinggegevens echt op en activeren we facturen, dashboardberekeningen en deadlines.</p>
+                <strong>Accountflow volledig testen</strong>
+                <p className="muted">Registreren, bevestigen, opnieuw inloggen, uitloggen, wachtwoord resetten en daarna controleren dat dezelfde bedrijfsgegevens terugkomen.</p>
               </div>
             </div>
-            <Link className="button secondary" href="/onboarding">Onboarding verder controleren</Link>
+            <Link className="button secondary" href="/onboarding">Bedrijfsgegevens controleren</Link>
           </article>
 
           <article className="card">
@@ -136,7 +140,7 @@ export default function DashboardPage() {
             <h2>Recente facturen</h2>
             <div className="empty-state">
               <strong>Nog geen facturen toegevoegd</strong>
-              <p className="muted">De factuur-upload wordt pas geactiveerd wanneer de veilige opslag en bedrijfsscheiding volledig gekoppeld en getest zijn.</p>
+              <p className="muted">De volgende productstap is een veilige uploadflow waarbij originele documenten privé blijven en altijd aan het juiste bedrijf gekoppeld worden.</p>
               <Link className="text-button" href="/facturen">Bekijk hoe facturen straks werken</Link>
             </div>
           </article>
