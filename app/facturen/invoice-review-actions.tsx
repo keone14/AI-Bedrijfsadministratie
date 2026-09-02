@@ -16,6 +16,13 @@ type ReviewValues = {
   currency: string | null;
   description: string | null;
   invoiceType: "purchase" | "sale" | null;
+  categoryId: string | null;
+};
+
+type CategoryOption = {
+  id: string;
+  simple_label: string;
+  description_simple: string | null;
 };
 
 type Draft = {
@@ -31,6 +38,7 @@ type Draft = {
   currency: string;
   description: string;
   invoiceType: "purchase" | "sale" | "";
+  categoryId: string;
 };
 
 type ArithmeticStatus = "incomplete" | "ok" | "mismatch" | "invalid";
@@ -49,6 +57,7 @@ function toDraft(values: ReviewValues): Draft {
     currency: values.currency ?? "",
     description: values.description ?? "",
     invoiceType: values.invoiceType ?? "",
+    categoryId: values.categoryId ?? "",
   };
 }
 
@@ -75,7 +84,7 @@ function arithmeticStatus(draft: Draft): ArithmeticStatus {
   return Math.abs((subtotal + vat) - total) <= 0.02 ? "ok" : "mismatch";
 }
 
-export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId: string; values: ReviewValues }) {
+export default function InvoiceReviewActions({ invoiceId, values, categories }: { invoiceId: string; values: ReviewValues; categories: CategoryOption[] }) {
   const router = useRouter();
   const initialDraft = useMemo(() => toDraft(values), [values]);
   const [draft, setDraft] = useState<Draft>(initialDraft);
@@ -124,12 +133,8 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
     setNotice(null);
 
     try {
-      if (amountStatus === "invalid") {
-        throw new Error("Controleer de bedragen. Gebruik bijvoorbeeld 121,00.");
-      }
-      if (amountStatus === "mismatch") {
-        throw new Error("Bedrag zonder btw + btw komt niet overeen met het totaal. Controleer deze drie bedragen eerst.");
-      }
+      if (amountStatus === "invalid") throw new Error("Controleer de bedragen. Gebruik bijvoorbeeld 121,00.");
+      if (amountStatus === "mismatch") throw new Error("Bedrag zonder btw + btw komt niet overeen met het totaal. Controleer deze drie bedragen eerst.");
 
       const nextValues: ReviewValues = {
         documentType: draft.documentType || null,
@@ -144,6 +149,7 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
         currency: draft.currency.trim() ? draft.currency.trim().toUpperCase() : null,
         description: draft.description.trim() || null,
         invoiceType: draft.invoiceType || null,
+        categoryId: draft.categoryId || null,
       };
 
       const corrections: Record<string, string | number | null> = {};
@@ -194,6 +200,7 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
           <div className="invoice-correction-grid">
             <label><span>Documenttype</span><select value={draft.documentType} onChange={(event) => update("documentType", event.target.value as Draft["documentType"])}><option value="">Niet zeker</option><option value="invoice">Factuur</option><option value="credit_note">Creditnota</option></select></label>
             <label><span>Aankoop of verkoop</span><select value={draft.invoiceType} onChange={(event) => update("invoiceType", event.target.value as Draft["invoiceType"])}><option value="">Niet zeker</option><option value="purchase">Aankoop</option><option value="sale">Verkoop</option></select></label>
+            <label><span>Categorie</span><select value={draft.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">Niet zeker</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.simple_label}</option>)}</select><small>Corrigeer je de categorie, dan onthouden we die keuze voor deze leverancier binnen jouw bedrijf.</small></label>
             <label><span>Leverancier</span><input value={draft.supplierName} maxLength={500} onChange={(event) => update("supplierName", event.target.value)} /></label>
             <label><span>Klant</span><input value={draft.customerName} maxLength={500} onChange={(event) => update("customerName", event.target.value)} /></label>
             <label><span>Factuurnummer</span><input value={draft.invoiceNumber} maxLength={200} onChange={(event) => update("invoiceNumber", event.target.value)} /></label>
@@ -207,15 +214,9 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
           </div>
 
           {amountStatus === "mismatch" ? (
-            <div className="invoice-read-warning" role="status" aria-live="polite">
-              <strong>De bedragen tellen niet helemaal op.</strong>
-              <span>Bedrag zonder btw + btw moet ongeveer gelijk zijn aan het totaal. Controleer deze drie bedragen voordat je opslaat.</span>
-            </div>
+            <div className="invoice-read-warning" role="status" aria-live="polite"><strong>De bedragen tellen niet helemaal op.</strong><span>Bedrag zonder btw + btw moet ongeveer gelijk zijn aan het totaal. Controleer deze drie bedragen voordat je opslaat.</span></div>
           ) : amountStatus === "invalid" ? (
-            <div className="invoice-read-warning" role="status" aria-live="polite">
-              <strong>Controleer de ingevoerde bedragen.</strong>
-              <span>Gebruik alleen cijfers, bijvoorbeeld 121,00.</span>
-            </div>
+            <div className="invoice-read-warning" role="status" aria-live="polite"><strong>Controleer de ingevoerde bedragen.</strong><span>Gebruik alleen cijfers, bijvoorbeeld 121,00.</span></div>
           ) : null}
 
           <div className="invoice-correction-footer">
