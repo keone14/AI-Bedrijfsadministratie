@@ -19,6 +19,24 @@
 .upload-result.error > span { color: #b42318; font-weight: 800; }
 .upload-result.success > span { color: #027a48; font-weight: 800; }
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
+.invoice-list-section { display: grid; gap: 16px; }
+.invoice-card-list { display: grid; gap: 12px; }
+.invoice-record-card { display: grid; gap: 16px; }
+.invoice-record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.invoice-record-heading > div { min-width: 0; display: grid; gap: 4px; }
+.invoice-record-heading strong { font-size: 1.05rem; overflow-wrap: anywhere; }
+.invoice-record-heading > div > span { color: var(--muted); font-size: .84rem; overflow-wrap: anywhere; }
+.invoice-state { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; font-size: .8rem; font-weight: 750; white-space: nowrap; background: #f2f4f7; color: #475467; }
+.invoice-state.is-processing { background: #eef6f8; color: #17566a; }
+.invoice-state.is-review { background: #fff7e8; color: #8a5a00; }
+.invoice-state.is-error { background: #fff1f0; color: #b42318; }
+.invoice-read-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.invoice-read-grid > div { display: grid; gap: 4px; min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; background: #fbfcfd; }
+.invoice-read-grid span { color: var(--muted); font-size: .78rem; }
+.invoice-read-grid strong { font-size: .9rem; overflow-wrap: anywhere; }
+.invoice-read-warning { display: grid; gap: 4px; border: 1px solid #f0d1ce; background: #fffafa; border-radius: 10px; padding: 12px 13px; color: #7a271a; }
+.invoice-read-warning span { font-size: .88rem; line-height: 1.45; }
+.invoice-awaiting-copy { margin: 0; line-height: 1.5; }
 .invoice-safety-card { display: grid; gap: 16px; }
 .invoice-safety-card > div > p { margin: 10px 0 0; max-width: 820px; line-height: 1.55; }
 .invoice-compliance-card { display: grid; gap: 12px; border-color: #d8e3e8; background: #fbfdfe; }
@@ -41,6 +59,10 @@
 .term-card > p { color: #475467; line-height: 1.5; margin: 0; }
 .compact-help { margin-top: 4px; }
 
+@media (max-width: 900px) {
+  .invoice-read-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 800px) {
   .invoices-heading, .section-intro, .upload-card-heading { display: grid; align-items: start; }
   .upload-card-heading .button { width: 100%; }
@@ -53,6 +75,9 @@
   .upload-card { padding: 16px; }
   .upload-dropzone { min-height: 104px; padding: 17px 12px; }
   .upload-result { align-items: flex-start; }
+  .invoice-record-heading { display: grid; }
+  .invoice-state { justify-self: start; }
+  .invoice-read-grid { grid-template-columns: 1fr; }
   .invoice-compliance-card { padding: 17px; }
   .invoices-empty-state { padding: 32px 16px; }
   .empty-state-steps { display: grid; width: 100%; }
