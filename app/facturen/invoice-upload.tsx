@@ -1,6 +1,7 @@
 "use client";
 
 import { DragEvent, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const MAX_FILES = 20;
@@ -20,6 +21,11 @@ type InitResponse = {
   error?: string;
 };
 
+type FinalizeResponse = {
+  invoiceId?: string;
+  error?: string;
+};
+
 function extension(name: string) {
   const dot = name.lastIndexOf(".");
   return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
@@ -33,6 +39,7 @@ function validateFile(file: File) {
 }
 
 export default function InvoiceUpload() {
+  const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -74,16 +81,37 @@ export default function InvoiceUpload() {
         originalFilename: file.name,
       }),
     });
-    const finalized = await finalizeResponse.json() as { error?: string };
+    const finalized = await finalizeResponse.json() as FinalizeResponse;
 
-    if (!finalizeResponse.ok) {
+    if (!finalizeResponse.ok || !finalized.invoiceId) {
       return { name: file.name, status: "error", message: finalized.error ?? "De factuur kon niet veilig worden geregistreerd." };
+    }
+
+    const extractionResponse = await fetch(`/api/invoices/${encodeURIComponent(finalized.invoiceId)}/extract`, {
+      method: "POST",
+    });
+    const extraction = await extractionResponse.json() as { code?: string; error?: string; message?: string };
+
+    if (extractionResponse.status === 202) {
+      return {
+        name: file.name,
+        status: "success",
+        message: "Veilig opgeslagen. Wordt nu uitgelezen; twijfel blijft zichtbaar.",
+      };
+    }
+
+    if (extraction.code === "AI_NOT_CONFIGURED") {
+      return {
+        name: file.name,
+        status: "success",
+        message: "Veilig opgeslagen. AI-uitlezing is nog niet geactiveerd, dus het document is niet extern verwerkt.",
+      };
     }
 
     return {
       name: file.name,
       status: "success",
-      message: "Veilig opgeslagen. Klaar voor uitlezen.",
+      message: "Veilig opgeslagen. Uitlezing kon nu niet worden gestart; je document blijft behouden.",
     };
   }
 
@@ -109,6 +137,7 @@ export default function InvoiceUpload() {
 
     setResults(finished);
     setBusy(false);
+    router.refresh();
     if (inputRef.current) inputRef.current.value = "";
   }
 
@@ -152,7 +181,7 @@ export default function InvoiceUpload() {
 
       <div className="upload-trust-note">
         <strong>Wat gebeurt er veilig?</strong>
-        <span>Het originele bestand blijft privé. Na upload controleren we op de server het echte bestandstype, de grootte en een SHA-256 vingerafdruk voordat het als factuur wordt geregistreerd.</span>
+        <span>Het originele bestand blijft privé. AI-uitlezing start alleen als er bewust een externe verwerkingsprovider op de server is ingesteld. Zonder die configuratie blijft het document alleen in jouw private opslag.</span>
       </div>
 
       {results.length ? (
