@@ -31,7 +31,7 @@ function outputText(response: OpenAIResponse) {
 async function uploadPdf(apiKey: string, buffer: Buffer, filename: string) {
   const form = new FormData();
   form.append("purpose", "user_data");
-  form.append("file", new Blob([buffer], { type: "application/pdf" }), filename);
+  form.append("file", new Blob([new Uint8Array(buffer)], { type: "application/pdf" }), filename);
 
   const response = await fetch(`${OPENAI_API}/files`, {
     method: "POST",
@@ -51,7 +51,7 @@ async function deleteFile(apiKey: string, fileId: string) {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
   } catch {
-    // Best-effort cleanup. The caller still treats the extraction result independently.
+    // Best-effort cleanup of the provider-side temporary file.
   }
 }
 
@@ -59,18 +59,16 @@ export async function extractInvoiceWithOpenAI(args: ExtractArgs) {
   let temporaryFileId: string | null = null;
 
   try {
-    const documentPart = args.mimeType === "application/pdf"
-      ? (() => { throw new Error("PDF_NOT_PREPARED"); })()
-      : {
-          type: "input_image" as const,
-          image_url: `data:${args.mimeType};base64,${args.buffer.toString("base64")}`,
-          detail: "high" as const,
-        };
-
-    let inputDocument: Record<string, unknown> = documentPart;
+    let inputDocument: Record<string, unknown>;
     if (args.mimeType === "application/pdf") {
       temporaryFileId = await uploadPdf(args.apiKey, args.buffer, args.filename);
       inputDocument = { type: "input_file", file_id: temporaryFileId };
+    } else {
+      inputDocument = {
+        type: "input_image",
+        image_url: `data:${args.mimeType};base64,${args.buffer.toString("base64")}`,
+        detail: "high",
+      };
     }
 
     const prompt = [
