@@ -123,6 +123,7 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
       const body = await response.json() as { error?: string; message?: string };
       if (!response.ok) throw new Error(body.error ?? "De aanpassingen konden niet worden opgeslagen.");
 
+      setDraft(toDraft(nextValues));
       setNotice(body.message ?? "Je aanpassingen zijn veilig opgeslagen.");
       setEditing(false);
       router.refresh();
