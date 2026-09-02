@@ -14,6 +14,7 @@ type InvoiceRow = {
   total: number | null;
   description: string | null;
   invoice_type: string | null;
+  category_id: string | null;
   review_status: string;
   extraction_confidence: number | null;
   approved_at: string | null;
@@ -22,21 +23,10 @@ type InvoiceRow = {
 };
 
 type JobRow = { invoice_id: string; status: string; error_code: string | null };
-type DocumentRow = {
-  id: string;
-  display_name: string | null;
-  original_filename: string;
-  processing_status: string;
-  document_type: string | null;
-};
-type ExtractionRow = {
-  invoice_id: string;
-  field_name: string;
-  confidence: number;
-  proposed_value_json: unknown;
-  user_confirmed: boolean;
-};
+type DocumentRow = { id: string; display_name: string | null; original_filename: string; processing_status: string; document_type: string | null };
+type ExtractionRow = { invoice_id: string; field_name: string; confidence: number; proposed_value_json: unknown; user_confirmed: boolean };
 type CorrectionRow = { invoice_id: string; field_name: string };
+type CategoryRow = { id: string; simple_label: string; description_simple: string | null };
 
 const fieldLabels: Record<string, string> = {
   documentType: "Documenttype",
@@ -51,6 +41,7 @@ const fieldLabels: Record<string, string> = {
   currency: "Valuta",
   description: "Omschrijving",
   invoiceType: "Aankoop of verkoop",
+  categoryId: "Categorie",
 };
 
 function formatMoney(value: number | null, currency: string | null) {
@@ -81,13 +72,23 @@ function needsAttention(row: ExtractionRow) { return row.confidence < 0.9 || row
 
 export default async function InvoiceList() {
   const supabase = await createSupabaseServerClient();
-  const { data: invoiceData } = await supabase
-    .from("invoices")
-    .select("id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, review_status, extraction_confidence, approved_at, created_at, document_id")
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const [{ data: invoiceData }, { data: categoryData }] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, category_id, review_status, extraction_confidence, approved_at, created_at, document_id")
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("categories")
+      .select("id, simple_label, description_simple")
+      .eq("active", true)
+      .order("simple_label", { ascending: true }),
+  ]);
 
   const invoices = (invoiceData ?? []) as InvoiceRow[];
+  const categories = (categoryData ?? []) as CategoryRow[];
+  const categoryLabels = new Map(categories.map((category) => [category.id, category.simple_label]));
+
   if (!invoices.length) {
     return (
       <section className="card invoices-empty-state">
@@ -175,12 +176,14 @@ export default async function InvoiceList() {
                     <div><span>Bedrag zonder btw</span><strong>{formatMoney(invoice.subtotal, invoice.currency)}</strong></div>
                     <div><span>Btw</span><strong>{formatMoney(invoice.vat_amount, invoice.currency)}</strong></div>
                     <div><span>Aankoop of verkoop</span><strong>{invoice.invoice_type === "purchase" ? "Aankoop" : invoice.invoice_type === "sale" ? "Verkoop" : "Niet zeker"}</strong></div>
+                    <div><span>Categorie</span><strong>{invoice.category_id ? categoryLabels.get(invoice.category_id) ?? "Onbekende categorie" : "Nog niet beslist"}</strong></div>
                     <div><span>Omschrijving</span><strong>{invoice.description ?? "Niet zeker / niet gevonden"}</strong></div>
                   </div>
 
                   {canReviewOrCorrect ? (
                     <InvoiceReviewActions
                       invoiceId={invoice.id}
+                      categories={categories}
                       values={{
                         documentType: document?.document_type === "credit_note" ? "credit_note" : document?.document_type === "invoice" ? "invoice" : null,
                         supplierName: invoice.supplier_name,
@@ -194,6 +197,7 @@ export default async function InvoiceList() {
                         currency: invoice.currency,
                         description: invoice.description,
                         invoiceType: invoice.invoice_type === "purchase" ? "purchase" : invoice.invoice_type === "sale" ? "sale" : null,
+                        categoryId: invoice.category_id,
                       }}
                     />
                   ) : null}
