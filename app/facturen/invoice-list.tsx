@@ -27,6 +27,7 @@ type DocumentRow = { id: string; display_name: string | null; original_filename:
 type ExtractionRow = { invoice_id: string; field_name: string; confidence: number; proposed_value_json: unknown; user_confirmed: boolean };
 type CorrectionRow = { invoice_id: string; field_name: string };
 type CategoryRow = { id: string; simple_label: string; description_simple: string | null };
+type CategoryAuditRow = { entity_id: string | null; action: string };
 
 const fieldLabels: Record<string, string> = {
   documentType: "Documenttype",
@@ -70,6 +71,16 @@ function confidenceCopy(value: number | null) {
 
 function needsAttention(row: ExtractionRow) { return row.confidence < 0.9 || row.proposed_value_json === null; }
 
+function categoryReason(options: { corrected: boolean; learnedPreferenceApplied: boolean; supplierName: string | null; categoryLabel: string }) {
+  if (options.corrected) {
+    return `Jij hebt deze factuur zelf bij ${options.categoryLabel} gezet. We bewaren die keuze als jouw correctie en gebruiken ze alleen als bedrijfsvoorkeur wanneer dat veilig past.`;
+  }
+  if (options.learnedPreferenceApplied && options.supplierName) {
+    return `Je koos eerder voor ${options.categoryLabel} bij ${options.supplierName}. Daarom is die bewaarde voorkeur nu opnieuw toegepast binnen jouw bedrijf.`;
+  }
+  return `Deze categorie is automatisch voorgesteld op basis van de beschikbare factuurgegevens, zoals leverancier en omschrijving. Controleer ze gerust als de aankoop of verkoop in werkelijkheid voor iets anders bedoeld was.`;
+}
+
 export default async function InvoiceList() {
   const supabase = await createSupabaseServerClient();
   const [{ data: invoiceData }, { data: categoryData }] = await Promise.all([
@@ -101,11 +112,12 @@ export default async function InvoiceList() {
 
   const invoiceIds = invoices.map((invoice) => invoice.id);
   const documentIds = invoices.map((invoice) => invoice.document_id);
-  const [{ data: jobData }, { data: documentData }, { data: extractionData }, { data: correctionData }] = await Promise.all([
+  const [{ data: jobData }, { data: documentData }, { data: extractionData }, { data: correctionData }, { data: categoryAuditData }] = await Promise.all([
     supabase.from("invoice_processing_jobs").select("invoice_id, status, error_code").in("invoice_id", invoiceIds),
     supabase.from("documents").select("id, display_name, original_filename, processing_status, document_type").in("id", documentIds),
     supabase.from("invoice_extractions").select("invoice_id, field_name, confidence, proposed_value_json, user_confirmed").in("invoice_id", invoiceIds),
     supabase.from("invoice_field_corrections").select("invoice_id, field_name").in("invoice_id", invoiceIds),
+    supabase.from("audit_logs").select("entity_id, action").eq("entity_type", "invoice").eq("action", "invoice_category_preference_applied").in("entity_id", invoiceIds),
   ]);
 
   const jobs = new Map(((jobData ?? []) as JobRow[]).map((job) => [job.invoice_id, job]));
@@ -122,6 +134,11 @@ export default async function InvoiceList() {
     current.add(row.field_name);
     correctedFields.set(row.invoice_id, current);
   }
+  const learnedPreferenceInvoices = new Set(
+    ((categoryAuditData ?? []) as CategoryAuditRow[])
+      .filter((row) => row.action === "invoice_category_preference_applied" && row.entity_id)
+      .map((row) => row.entity_id as string),
+  );
 
   return (
     <section className="invoice-list-section" aria-labelledby="invoice-list-title">
@@ -143,6 +160,7 @@ export default async function InvoiceList() {
           const isAutoVerified = invoice.review_status === "auto_verified";
           const requiresReview = job?.status === "needs_review" && !isConfirmed;
           const canReviewOrCorrect = hasExtraction && !isConfirmed && job?.status !== "processing" && job?.status !== "failed";
+          const categoryLabel = invoice.category_id ? categoryLabels.get(invoice.category_id) ?? "Onbekende categorie" : null;
 
           return (
             <article className="card invoice-record-card" key={invoice.id}>
@@ -176,9 +194,20 @@ export default async function InvoiceList() {
                     <div><span>Bedrag zonder btw</span><strong>{formatMoney(invoice.subtotal, invoice.currency)}</strong></div>
                     <div><span>Btw</span><strong>{formatMoney(invoice.vat_amount, invoice.currency)}</strong></div>
                     <div><span>Aankoop of verkoop</span><strong>{invoice.invoice_type === "purchase" ? "Aankoop" : invoice.invoice_type === "sale" ? "Verkoop" : "Niet zeker"}</strong></div>
-                    <div><span>Categorie</span><strong>{invoice.category_id ? categoryLabels.get(invoice.category_id) ?? "Onbekende categorie" : "Nog niet beslist"}</strong></div>
+                    <div><span>Categorie</span><strong>{categoryLabel ?? "Nog niet beslist"}</strong></div>
                     <div><span>Omschrijving</span><strong>{invoice.description ?? "Niet zeker / niet gevonden"}</strong></div>
                   </div>
+
+                  {categoryLabel ? (
+                    <details className="invoice-category-reason">
+                      <summary>Waarom deze categorie?</summary>
+                      <div>
+                        <strong>{categoryLabel}</strong>
+                        <p>{categoryReason({ corrected: corrected.has("categoryId"), learnedPreferenceApplied: learnedPreferenceInvoices.has(invoice.id), supplierName: invoice.supplier_name, categoryLabel })}</p>
+                        {!isConfirmed ? <span>Klopt de categorie niet? Kies <strong>Aanpassen</strong> en selecteer de juiste eenvoudige categorie.</span> : null}
+                      </div>
+                    </details>
+                  ) : null}
 
                   {canReviewOrCorrect ? (
                     <InvoiceReviewActions
