@@ -67,7 +67,7 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
   const [notice, setNotice] = useState<string | null>(null);
 
   async function confirm() {
-    if (busy) return;
+    if (busy || editing) return;
     setBusy("confirm");
     setError(null);
     setNotice(null);
@@ -85,6 +85,18 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
 
   function update<K extends keyof Draft>(field: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function toggleEditing() {
+    setError(null);
+    setNotice(null);
+    if (editing) {
+      setDraft(toDraft(values));
+      setEditing(false);
+      return;
+    }
+    setDraft(toDraft(values));
+    setEditing(true);
   }
 
   async function saveCorrections() {
@@ -137,13 +149,13 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
   return (
     <div className="invoice-review-block">
       <div className="invoice-review-actions">
-        <button className="button" type="button" disabled={Boolean(busy)} onClick={confirm}>
+        <button className="button" type="button" disabled={Boolean(busy) || editing} onClick={confirm}>
           {busy === "confirm" ? "Bevestigen..." : "Ja, dit klopt"}
         </button>
-        <button className="button button-secondary" type="button" disabled={Boolean(busy)} onClick={() => { setEditing((value) => !value); setError(null); setNotice(null); }}>
-          {editing ? "Sluiten" : "Aanpassen"}
+        <button className="button button-secondary" type="button" disabled={Boolean(busy)} onClick={toggleEditing}>
+          {editing ? "Annuleren" : "Aanpassen"}
         </button>
-        <span className="muted">Bevestig alleen als de gegevens kloppen. Aanpassingen worden apart bijgehouden; de oorspronkelijke AI-uitlezing blijft bestaan.</span>
+        <span className="muted">{editing ? "Sla je wijzigingen eerst op. Pas daarna kun je de factuur bevestigen." : "Bevestig alleen als de gegevens kloppen. Aanpassingen worden apart bijgehouden; de oorspronkelijke AI-uitlezing blijft bestaan."}</span>
       </div>
 
       {editing ? (
