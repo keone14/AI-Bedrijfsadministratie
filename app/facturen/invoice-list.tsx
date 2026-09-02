@@ -21,19 +21,14 @@ type InvoiceRow = {
   document_id: string;
 };
 
-type JobRow = {
-  invoice_id: string;
-  status: string;
-  error_code: string | null;
-};
-
+type JobRow = { invoice_id: string; status: string; error_code: string | null };
 type DocumentRow = {
   id: string;
   display_name: string | null;
   original_filename: string;
   processing_status: string;
+  document_type: string | null;
 };
-
 type ExtractionRow = {
   invoice_id: string;
   field_name: string;
@@ -41,6 +36,7 @@ type ExtractionRow = {
   proposed_value_json: unknown;
   user_confirmed: boolean;
 };
+type CorrectionRow = { invoice_id: string; field_name: string };
 
 const fieldLabels: Record<string, string> = {
   documentType: "Documenttype",
@@ -60,11 +56,8 @@ const fieldLabels: Record<string, string> = {
 function formatMoney(value: number | null, currency: string | null) {
   if (value === null) return "Niet zeker / niet gevonden";
   if (!currency) return `${value.toFixed(2)} (valuta niet bevestigd)`;
-  try {
-    return new Intl.NumberFormat("nl-BE", { style: "currency", currency }).format(value);
-  } catch {
-    return `${value.toFixed(2)} ${currency}`;
-  }
+  try { return new Intl.NumberFormat("nl-BE", { style: "currency", currency }).format(value); }
+  catch { return `${value.toFixed(2)} ${currency}`; }
 }
 
 function statusLabel(invoice: InvoiceRow, job: JobRow | undefined, document: DocumentRow | undefined) {
@@ -84,9 +77,7 @@ function confidenceCopy(value: number | null) {
   return "Minstens één belangrijk veld is onvoldoende zeker. Controleer de gemarkeerde gegevens.";
 }
 
-function needsAttention(row: ExtractionRow) {
-  return row.confidence < 0.9 || row.proposed_value_json === null;
-}
+function needsAttention(row: ExtractionRow) { return row.confidence < 0.9 || row.proposed_value_json === null; }
 
 export default async function InvoiceList() {
   const supabase = await createSupabaseServerClient();
@@ -109,10 +100,11 @@ export default async function InvoiceList() {
 
   const invoiceIds = invoices.map((invoice) => invoice.id);
   const documentIds = invoices.map((invoice) => invoice.document_id);
-  const [{ data: jobData }, { data: documentData }, { data: extractionData }] = await Promise.all([
+  const [{ data: jobData }, { data: documentData }, { data: extractionData }, { data: correctionData }] = await Promise.all([
     supabase.from("invoice_processing_jobs").select("invoice_id, status, error_code").in("invoice_id", invoiceIds),
-    supabase.from("documents").select("id, display_name, original_filename, processing_status").in("id", documentIds),
+    supabase.from("documents").select("id, display_name, original_filename, processing_status, document_type").in("id", documentIds),
     supabase.from("invoice_extractions").select("invoice_id, field_name, confidence, proposed_value_json, user_confirmed").in("invoice_id", invoiceIds),
+    supabase.from("invoice_field_corrections").select("invoice_id, field_name").in("invoice_id", invoiceIds),
   ]);
 
   const jobs = new Map(((jobData ?? []) as JobRow[]).map((job) => [job.invoice_id, job]));
@@ -123,14 +115,17 @@ export default async function InvoiceList() {
     current.push(row);
     extractions.set(row.invoice_id, current);
   }
+  const correctedFields = new Map<string, Set<string>>();
+  for (const row of (correctionData ?? []) as CorrectionRow[]) {
+    const current = correctedFields.get(row.invoice_id) ?? new Set<string>();
+    current.add(row.field_name);
+    correctedFields.set(row.invoice_id, current);
+  }
 
   return (
     <section className="invoice-list-section" aria-labelledby="invoice-list-title">
       <div className="section-intro">
-        <div>
-          <div className="eyebrow">Jouw facturen</div>
-          <h2 id="invoice-list-title">Alleen controleren waar dat echt nodig is</h2>
-        </div>
+        <div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Alleen controleren waar dat echt nodig is</h2></div>
         <p className="muted">De app gebruikt een conservatieve confidence-regel. Hoge zekerheid plus geslaagde vaste controles kan automatisch in orde zijn. Bij twijfel tonen we precies welke velden je moet nakijken.</p>
       </div>
 
@@ -140,6 +135,7 @@ export default async function InvoiceList() {
           const document = documents.get(invoice.document_id);
           const rows = extractions.get(invoice.id) ?? [];
           const uncertainFields = rows.filter(needsAttention);
+          const corrected = correctedFields.get(invoice.id) ?? new Set<string>();
           const label = statusLabel(invoice, job, document);
           const hasExtraction = rows.length > 0 || Boolean(invoice.supplier_name || invoice.customer_name || invoice.total !== null);
           const isConfirmed = invoice.review_status === "confirmed";
@@ -149,18 +145,12 @@ export default async function InvoiceList() {
           return (
             <article className="card invoice-record-card" key={invoice.id}>
               <div className="invoice-record-heading">
-                <div>
-                  <strong>{invoice.supplier_name ?? invoice.customer_name ?? document?.display_name ?? document?.original_filename ?? "Factuur"}</strong>
-                  <span>{document?.display_name ?? document?.original_filename ?? "Origineel document"}</span>
-                </div>
+                <div><strong>{invoice.supplier_name ?? invoice.customer_name ?? document?.display_name ?? document?.original_filename ?? "Factuur"}</strong><span>{document?.display_name ?? document?.original_filename ?? "Origineel document"}</span></div>
                 <span className={`invoice-state ${job?.status === "failed" ? "is-error" : job?.status === "processing" ? "is-processing" : isConfirmed || isAutoVerified ? "is-ok" : "is-review"}`}>{label}</span>
               </div>
 
               {job?.status === "failed" ? (
-                <div className="invoice-read-warning" role="status">
-                  <strong>De uitlezing is niet betrouwbaar afgerond.</strong>
-                  <span>Je originele factuur blijft veilig bewaard. We tonen geen verzonnen gegevens.</span>
-                </div>
+                <div className="invoice-read-warning" role="status"><strong>De uitlezing is niet betrouwbaar afgerond.</strong><span>Je originele factuur blijft veilig bewaard. We tonen geen verzonnen gegevens.</span></div>
               ) : hasExtraction ? (
                 <>
                   <div className="invoice-confidence-note">
@@ -168,15 +158,12 @@ export default async function InvoiceList() {
                     <span>{isConfirmed ? "De bevestiging en het tijdstip worden als auditspoor bewaard." : confidenceCopy(invoice.extraction_confidence)}</span>
                   </div>
 
+                  {corrected.size ? (
+                    <div className="invoice-corrected-fields"><strong>Aangepast door jou:</strong><div>{Array.from(corrected).slice(0, 8).map((field) => <span key={field}>{fieldLabels[field] ?? field}</span>)}</div></div>
+                  ) : null}
+
                   {requiresReview && uncertainFields.length ? (
-                    <div className="invoice-uncertain-fields" aria-label="Velden om na te kijken">
-                      <strong>Controleer vooral:</strong>
-                      <div>
-                        {uncertainFields.slice(0, 6).map((row) => (
-                          <span key={row.field_name}>{fieldLabels[row.field_name] ?? row.field_name}</span>
-                        ))}
-                      </div>
-                    </div>
+                    <div className="invoice-uncertain-fields" aria-label="Velden om na te kijken"><strong>Controleer vooral:</strong><div>{uncertainFields.slice(0, 6).map((row) => <span key={row.field_name}>{fieldLabels[row.field_name] ?? row.field_name}</span>)}</div></div>
                   ) : null}
 
                   <div className="invoice-read-grid">
@@ -190,11 +177,27 @@ export default async function InvoiceList() {
                     <div><span>Omschrijving</span><strong>{invoice.description ?? "Niet zeker / niet gevonden"}</strong></div>
                   </div>
 
-                  {requiresReview ? <InvoiceReviewActions invoiceId={invoice.id} /> : null}
+                  {requiresReview ? (
+                    <InvoiceReviewActions
+                      invoiceId={invoice.id}
+                      values={{
+                        documentType: document?.document_type === "credit_note" ? "credit_note" : document?.document_type === "invoice" ? "invoice" : null,
+                        supplierName: invoice.supplier_name,
+                        customerName: invoice.customer_name,
+                        invoiceNumber: invoice.invoice_number,
+                        invoiceDate: invoice.invoice_date,
+                        dueDate: invoice.due_date,
+                        subtotal: invoice.subtotal,
+                        vatAmount: invoice.vat_amount,
+                        total: invoice.total,
+                        currency: invoice.currency,
+                        description: invoice.description,
+                        invoiceType: invoice.invoice_type === "purchase" ? "purchase" : invoice.invoice_type === "sale" ? "sale" : null,
+                      }}
+                    />
+                  ) : null}
                 </>
-              ) : (
-                <p className="muted invoice-awaiting-copy">Het document is veilig opgeslagen, maar er zijn nog geen betrouwbare uitgelezen velden beschikbaar.</p>
-              )}
+              ) : <p className="muted invoice-awaiting-copy">Het document is veilig opgeslagen, maar er zijn nog geen betrouwbare uitgelezen velden beschikbaar.</p>}
             </article>
           );
         })}
