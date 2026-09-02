@@ -33,6 +33,8 @@ type Draft = {
   invoiceType: "purchase" | "sale" | "";
 };
 
+type ArithmeticStatus = "incomplete" | "ok" | "mismatch" | "invalid";
+
 function toDraft(values: ReviewValues): Draft {
   return {
     documentType: values.documentType ?? "",
@@ -50,11 +52,27 @@ function toDraft(values: ReviewValues): Draft {
   };
 }
 
-function numberOrNull(value: string) {
+function parseOptionalNumber(value: string) {
   if (!value.trim()) return null;
   const parsed = Number(value.replace(",", "."));
-  if (!Number.isFinite(parsed)) throw new Error("Controleer de bedragen. Gebruik bijvoorbeeld 121,00.");
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+function numberOrNull(value: string) {
+  const parsed = parseOptionalNumber(value);
+  if (parsed === null) return null;
+  if (Number.isNaN(parsed)) throw new Error("Controleer de bedragen. Gebruik bijvoorbeeld 121,00.");
   return parsed;
+}
+
+function arithmeticStatus(draft: Draft): ArithmeticStatus {
+  const subtotal = parseOptionalNumber(draft.subtotal);
+  const vat = parseOptionalNumber(draft.vatAmount);
+  const total = parseOptionalNumber(draft.total);
+
+  if ([subtotal, vat, total].some((value) => typeof value === "number" && Number.isNaN(value))) return "invalid";
+  if (subtotal === null || vat === null || total === null) return "incomplete";
+  return Math.abs((subtotal + vat) - total) <= 0.02 ? "ok" : "mismatch";
 }
 
 export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId: string; values: ReviewValues }) {
@@ -65,6 +83,7 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
   const [busy, setBusy] = useState<"confirm" | "save" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const amountStatus = useMemo(() => arithmeticStatus(draft), [draft]);
 
   async function confirm() {
     if (busy || editing) return;
@@ -105,6 +124,13 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
     setNotice(null);
 
     try {
+      if (amountStatus === "invalid") {
+        throw new Error("Controleer de bedragen. Gebruik bijvoorbeeld 121,00.");
+      }
+      if (amountStatus === "mismatch") {
+        throw new Error("Bedrag zonder btw + btw komt niet overeen met het totaal. Controleer deze drie bedragen eerst.");
+      }
+
       const nextValues: ReviewValues = {
         documentType: draft.documentType || null,
         supplierName: draft.supplierName.trim() || null,
@@ -180,8 +206,20 @@ export default function InvoiceReviewActions({ invoiceId, values }: { invoiceId:
             <label className="invoice-correction-wide"><span>Omschrijving</span><textarea value={draft.description} maxLength={2000} rows={3} onChange={(event) => update("description", event.target.value)} /></label>
           </div>
 
+          {amountStatus === "mismatch" ? (
+            <div className="invoice-read-warning" role="status" aria-live="polite">
+              <strong>De bedragen tellen niet helemaal op.</strong>
+              <span>Bedrag zonder btw + btw moet ongeveer gelijk zijn aan het totaal. Controleer deze drie bedragen voordat je opslaat.</span>
+            </div>
+          ) : amountStatus === "invalid" ? (
+            <div className="invoice-read-warning" role="status" aria-live="polite">
+              <strong>Controleer de ingevoerde bedragen.</strong>
+              <span>Gebruik alleen cijfers, bijvoorbeeld 121,00.</span>
+            </div>
+          ) : null}
+
           <div className="invoice-correction-footer">
-            <button className="button" type="button" disabled={Boolean(busy)} onClick={saveCorrections}>{busy === "save" ? "Veilig opslaan..." : "Aanpassingen opslaan"}</button>
+            <button className="button" type="button" disabled={Boolean(busy) || amountStatus === "mismatch" || amountStatus === "invalid"} onClick={saveCorrections}>{busy === "save" ? "Veilig opslaan..." : "Aanpassingen opslaan"}</button>
             <span className="muted">Na opslaan blijft de factuur op ‘Controle nodig’ totdat je ze expliciet bevestigt.</span>
           </div>
         </div>
