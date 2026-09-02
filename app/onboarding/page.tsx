@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type FormState = {
   companyName: string;
@@ -87,11 +88,22 @@ function displayValue(value: string) {
   return summaryLabels[value] ?? value;
 }
 
+function nullableValue(value: string) {
+  return !value || value === "unknown" ? null : value;
+}
+
+function normalizeEnterpriseNumber(value: string) {
+  if (!value || value === "unknown") return null;
+  return value.replace(/\D/g, "");
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<FormState>(initialState);
   const [notice, setNotice] = useState<string | null>(null);
+  const [loadingSavedData, setLoadingSavedData] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const unresolved = useMemo(
     () => Object.entries(form).filter(([key, value]) => {
@@ -102,6 +114,66 @@ export default function OnboardingPage() {
     }).length,
     [form],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSavedCompany() {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+
+        if (userError || !userData.user) {
+          router.replace("/login");
+          return;
+        }
+
+        const { data: membership, error: membershipError } = await supabase
+          .from("company_members")
+          .select("company_id, created_at")
+          .eq("user_id", userData.user.id)
+          .eq("status", "active")
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (membershipError) throw membershipError;
+        if (!membership?.company_id) return;
+
+        const { data: company, error: companyError } = await supabase
+          .from("companies")
+          .select("name, enterprise_number, start_date, legal_form, occupation_status, vat_status, vat_frequency, activity_description_raw, sells_products_services, employee_status")
+          .eq("id", membership.company_id)
+          .single();
+
+        if (companyError) throw companyError;
+        if (cancelled) return;
+
+        setForm({
+          companyName: company.name ?? "",
+          enterpriseNumber: company.enterprise_number ?? "unknown",
+          startDate: company.start_date ?? "unknown",
+          legalForm: company.legal_form ?? "unknown",
+          occupationStatus: company.occupation_status ?? "unknown",
+          vatStatus: company.vat_status ?? "unknown",
+          vatFrequency: company.vat_frequency ?? "unknown",
+          activity: company.activity_description_raw ?? "unknown",
+          sells: company.sells_products_services ?? "unknown",
+          employeeStatus: company.employee_status ?? "unknown",
+        });
+        setNotice("Je eerder opgeslagen bedrijfsgegevens zijn geladen. Je kunt ze controleren of aanpassen.");
+      } catch {
+        if (!cancelled) {
+          setNotice("We konden je opgeslagen bedrijfsgegevens niet betrouwbaar laden. Probeer opnieuw voordat je belangrijke gegevens aanpast.");
+        }
+      } finally {
+        if (!cancelled) setLoadingSavedData(false);
+      }
+    }
+
+    void loadSavedCompany();
+    return () => { cancelled = true; };
+  }, [router]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -114,12 +186,101 @@ export default function OnboardingPage() {
   }
 
   function next() {
-    if (step === 1 && !form.companyName) {
+    if (step === 1 && !form.companyName.trim()) {
       setNotice("Vul een naam in waarmee jij je bedrijf herkent. De officiële naam kun je later nog controleren.");
       return;
     }
     setNotice(null);
     setStep((current) => Math.min(current + 1, steps.length - 1));
+  }
+
+  async function saveOnboarding() {
+    if (saving || loadingSavedData) return;
+
+    const companyName = form.companyName.trim();
+    if (!companyName) {
+      setNotice("Vul eerst een bedrijfsnaam in. Zonder naam kunnen we je bedrijfsprofiel niet veilig opslaan.");
+      setStep(1);
+      return;
+    }
+
+    const enterpriseNumber = normalizeEnterpriseNumber(form.enterpriseNumber);
+    if (enterpriseNumber && enterpriseNumber.length !== 10) {
+      setNotice("Een Belgisch ondernemingsnummer moet 10 cijfers bevatten. Controleer het nummer in de KBO of kies ‘Ik weet dit niet’. ");
+      setStep(1);
+      return;
+    }
+
+    setSaving(true);
+    setNotice("Je bedrijfsgegevens worden veilig opgeslagen…");
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: membership, error: membershipError } = await supabase
+        .from("company_members")
+        .select("company_id, created_at")
+        .eq("user_id", userData.user.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (membershipError) throw membershipError;
+
+      let companyId = membership?.company_id ?? null;
+      if (!companyId) {
+        const { data: createdCompanyId, error: createError } = await supabase.rpc("create_company_with_owner", {
+          company_name: companyName,
+          enterprise_no: enterpriseNumber,
+        });
+        if (createError || !createdCompanyId) throw createError ?? new Error("Company creation failed");
+        companyId = createdCompanyId;
+      }
+
+      const payload = {
+        name: companyName,
+        enterprise_number: enterpriseNumber,
+        start_date: nullableValue(form.startDate),
+        legal_form: nullableValue(form.legalForm),
+        occupation_status: nullableValue(form.occupationStatus),
+        vat_status: nullableValue(form.vatStatus),
+        vat_frequency: nullableValue(form.vatFrequency),
+        activity_description_raw: nullableValue(form.activity),
+        sells_products_services: nullableValue(form.sells),
+        employee_status: nullableValue(form.employeeStatus),
+        profile_status: unresolved === 0 ? "complete" : "incomplete",
+        updated_at: new Date().toISOString(),
+      };
+
+      const { error: updateError } = await supabase
+        .from("companies")
+        .update(payload)
+        .eq("id", companyId);
+
+      if (updateError) throw updateError;
+
+      const { data: savedCompany, error: verifyError } = await supabase
+        .from("companies")
+        .select("id, name, profile_status")
+        .eq("id", companyId)
+        .single();
+
+      if (verifyError || !savedCompany) throw verifyError ?? new Error("Saved company could not be verified");
+
+      setNotice("Opgeslagen. Je bedrijfsgegevens blijven nu bewaard wanneer je uitlogt en later terugkomt.");
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setNotice("Opslaan is niet gelukt. Er is niets als bevestigd voorgesteld. Probeer opnieuw; als dit blijft gebeuren, controleer dan de verbinding met je veilige bedrijfsdatabase.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const summaryRows: Array<[string, string, number]> = [
@@ -154,7 +315,7 @@ export default function OnboardingPage() {
               <strong>Je hoeft nooit te gokken.</strong>
               <p className="muted">Weet je iets niet? Kies dan veilig voor “Ik weet het niet”. Belangrijke fiscale of juridische informatie behandelen we pas als bevestigd wanneer daar voldoende bewijs voor is.</p>
             </div>
-            <button className="button" type="button" onClick={next}>Mijn bedrijf instellen</button>
+            <button className="button" type="button" onClick={next} disabled={loadingSavedData}>{loadingSavedData ? "Opgeslagen gegevens laden…" : "Mijn bedrijf instellen"}</button>
           </section>
         ) : null}
 
@@ -382,7 +543,7 @@ export default function OnboardingPage() {
                 </div>
               ))}
             </div>
-            <button className="button" type="button" onClick={() => router.push("/dashboard")}>Start mijn dashboard</button>
+            <button className="button" type="button" onClick={() => void saveOnboarding()} disabled={saving || loadingSavedData} aria-busy={saving}>{saving ? "Veilig opslaan…" : "Opslaan en dashboard openen"}</button>
           </section>
         ) : null}
 
