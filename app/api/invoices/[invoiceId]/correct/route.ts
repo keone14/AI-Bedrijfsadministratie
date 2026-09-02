@@ -21,6 +21,7 @@ const correctionsSchema = z.object({
   currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).nullable().optional(),
   description: nullableText(2000).optional(),
   invoiceType: z.enum(["purchase", "sale"]).nullable().optional(),
+  categoryId: z.string().uuid().nullable().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, {
   message: "Pas minstens één veld aan.",
 });
