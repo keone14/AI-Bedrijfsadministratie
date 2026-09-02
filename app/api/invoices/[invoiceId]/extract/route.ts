@@ -24,9 +24,13 @@ function processingConfiguration(): ProcessingConfiguration | null {
     return { provider, apiKey, model };
   }
 
-  // Zero-cost proof path. Never permit fixture output in production because it is
-  // synthetic test data and must not be mistaken for a real document extraction.
-  if (provider === "fixture" && process.env.VERCEL_ENV !== "production" && process.env.NODE_ENV !== "production") {
+  // Zero-cost proof path. It requires an explicit opt-in and is hard-blocked in
+  // the Vercel production environment so fixture values can never become real output.
+  if (
+    provider === "fixture" &&
+    process.env.ALLOW_SYNTHETIC_AI_FIXTURE === "true" &&
+    process.env.VERCEL_ENV !== "production"
+  ) {
     return { provider, model: "synthetic-fixture-v1" };
   }
 
