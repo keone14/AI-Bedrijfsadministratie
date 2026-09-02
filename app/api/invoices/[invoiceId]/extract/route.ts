@@ -2,19 +2,35 @@ import { after, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { extractInvoiceWithOpenAI } from "@/lib/invoices/openai-extractor";
+import { extractSyntheticInvoiceFixture } from "@/lib/invoices/synthetic-fixture-extractor";
 
 const supportedMimes = new Set(["application/pdf", "image/jpeg", "image/png"]);
 
 type RouteContext = { params: Promise<{ invoiceId: string }> };
 
-function processingConfiguration() {
-  const provider = process.env.AI_INVOICE_PROVIDER;
-  const apiKey = process.env.OPENAI_API_KEY;
-  const model = process.env.OPENAI_INVOICE_MODEL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+type ProcessingConfiguration =
+  | { provider: "openai"; apiKey: string; model: string }
+  | { provider: "fixture"; model: "synthetic-fixture-v1" };
 
-  if (provider !== "openai" || !apiKey || !model || !serviceRoleKey) return null;
-  return { provider, apiKey, model };
+function processingConfiguration(): ProcessingConfiguration | null {
+  const provider = process.env.AI_INVOICE_PROVIDER;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) return null;
+
+  if (provider === "openai") {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const model = process.env.OPENAI_INVOICE_MODEL;
+    if (!apiKey || !model) return null;
+    return { provider, apiKey, model };
+  }
+
+  // Zero-cost proof path. Never permit fixture output in production because it is
+  // synthetic test data and must not be mistaken for a real document extraction.
+  if (provider === "fixture" && process.env.VERCEL_ENV !== "production" && process.env.NODE_ENV !== "production") {
+    return { provider, model: "synthetic-fixture-v1" };
+  }
+
+  return null;
 }
 
 function errorCode(error: unknown) {
@@ -27,7 +43,12 @@ function errorCode(error: unknown) {
 }
 
 export async function GET() {
-  return NextResponse.json({ enabled: Boolean(processingConfiguration()) });
+  const configuration = processingConfiguration();
+  return NextResponse.json({
+    enabled: Boolean(configuration),
+    provider: configuration?.provider ?? null,
+    synthetic: configuration?.provider === "fixture",
+  });
 }
 
 export async function POST(_request: Request, context: RouteContext) {
@@ -92,25 +113,34 @@ export async function POST(_request: Request, context: RouteContext) {
 
   after(async () => {
     try {
-      const { data: blob, error: downloadError } = await admin.storage
-        .from("company-documents")
-        .download(document.storage_path);
-      if (downloadError || !blob) throw new Error("document download failed");
+      let extraction;
+      let method: string;
 
-      const extraction = await extractInvoiceWithOpenAI({
-        apiKey: configuration.apiKey,
-        model: configuration.model,
-        buffer: Buffer.from(await blob.arrayBuffer()),
-        mimeType: document.mime_type as "application/pdf" | "image/jpeg" | "image/png",
-        filename: document.original_filename,
-        companyName: company.name,
-      });
+      if (configuration.provider === "fixture") {
+        extraction = extractSyntheticInvoiceFixture();
+        method = "synthetic_fixture_no_external_data";
+      } else {
+        const { data: blob, error: downloadError } = await admin.storage
+          .from("company-documents")
+          .download(document.storage_path);
+        if (downloadError || !blob) throw new Error("document download failed");
+
+        extraction = await extractInvoiceWithOpenAI({
+          apiKey: configuration.apiKey,
+          model: configuration.model,
+          buffer: Buffer.from(await blob.arrayBuffer()),
+          mimeType: document.mime_type as "application/pdf" | "image/jpeg" | "image/png",
+          filename: document.original_filename,
+          companyName: company.name,
+        });
+        method = "openai_responses_vision_structured_output";
+      }
 
       const { error: applyError } = await admin.rpc("apply_validated_invoice_extraction", {
         target_invoice_id: invoice.id,
         extraction,
         extraction_model_version: configuration.model,
-        extraction_method_name: "openai_responses_vision_structured_output",
+        extraction_method_name: method,
       });
       if (applyError) throw new Error("validated extraction could not be committed");
     } catch (error) {
@@ -125,6 +155,9 @@ export async function POST(_request: Request, context: RouteContext) {
     invoiceId: invoice.id,
     jobId,
     status: "processing",
-    message: "De factuur wordt veilig uitgelezen. Het resultaat wordt altijd eerst als te controleren gegevens opgeslagen.",
+    synthetic: configuration.provider === "fixture",
+    message: configuration.provider === "fixture"
+      ? "Synthetische stagingtest gestart. Er wordt geen documentinhoud naar een externe AI-dienst gestuurd."
+      : "De factuur wordt veilig uitgelezen. Het resultaat wordt altijd eerst als te controleren gegevens opgeslagen.",
   }, { status: 202 });
 }
