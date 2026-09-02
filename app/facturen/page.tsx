@@ -1,5 +1,6 @@
 import Link from "next/link";
 import InvoiceUpload from "./invoice-upload";
+import InvoiceList from "./invoice-list";
 import "./facturen.css";
 
 const nav = [
@@ -16,19 +17,19 @@ const invoiceTerms = [
     title: "Aankoopfactuur",
     short: "Een factuur die jouw bedrijf krijgt wanneer het iets koopt.",
     example: "Bijvoorbeeld een factuur van Proximus, Canva of een leverancier van materiaal.",
-    unknown: "Twijfel je? Upload de factuur gewoon. De app zal later eerst zelf het type voorstellen en alleen om bevestiging vragen als dat nodig is.",
+    unknown: "Twijfel je? Upload de factuur gewoon. De app probeert het type te herkennen en houdt twijfel zichtbaar.",
   },
   {
     title: "Verkoopfactuur",
     short: "Een factuur die jouw bedrijf aan een klant stuurt voor iets dat je verkoopt.",
     example: "Bijvoorbeeld een factuur aan een klant voor een uitgevoerde dienst of verkocht product.",
-    unknown: "Je hoeft dit bij upload niet vooraf te kiezen. De uitleesstap komt hierna.",
+    unknown: "Je hoeft dit bij upload niet vooraf te kiezen. Als de uitlezing het niet betrouwbaar kan bepalen, blijft het onbekend.",
   },
   {
     title: "Bedrag zonder btw",
     short: "Het bedrag vóór eventuele btw erbij wordt geteld.",
     example: "Als een factuur €121 totaal is en €21 daarvan btw is, is het bedrag zonder btw €100.",
-    unknown: "Als de bedragen niet duidelijk optellen, moet de factuur later als ‘Nakijken’ verschijnen in plaats van dat we zelf iets verzinnen.",
+    unknown: "Als de bedragen niet duidelijk optellen, blijft de factuur een controlepunt in plaats van dat we een bedrag verzinnen.",
   },
   {
     title: "Vervaldatum",
@@ -59,23 +60,24 @@ export default function FacturenPage() {
           <div>
             <div className="eyebrow">Facturen</div>
             <h1>Upload je facturen zonder boekhoudwerk.</h1>
-            <p className="muted">Je hoeft vooraf geen type of categorie te kiezen. Eerst bewaren we het originele bestand veilig. Uitlezen en categoriseren bouwen we als volgende stap bovenop deze betrouwbare basis.</p>
+            <p className="muted">Het originele bestand wordt eerst veilig opgeslagen. Wanneer AI-uitlezing op de server is geactiveerd, lezen we de belangrijkste velden gestructureerd uit en blijft elke onzekerheid zichtbaar.</p>
           </div>
         </header>
 
         <InvoiceUpload />
+        <InvoiceList />
 
         <section className="card invoice-safety-card" aria-labelledby="upload-status-title">
           <div>
             <div className="status status-neutral"><span className="dot dot-neutral" /><span id="upload-status-title">Originele facturen worden privé en onveranderbaar bewaard</span></div>
-            <p className="muted">Een upload wordt pas als factuur geregistreerd nadat de server het echte bestandstype, de grootte en een SHA-256 vingerafdruk heeft gecontroleerd. Een gebruiker van een ander bedrijf krijgt via de database- en storage-regels geen toegang tot jouw bestand.</p>
+            <p className="muted">AI-resultaten staan los van het originele document. Een modelresultaat moet eerst door een strikt schema, wordt als aparte extractie-audit bewaard en blijft voorlopig een controlepunt.</p>
           </div>
           <details className="help-details">
             <summary>Waarom controleren we dit?</summary>
             <div className="help-details-body">
               <div><strong>Echt bestandstype</strong><p>We vertrouwen niet alleen op de bestandsnaam. Een bestand dat bijvoorbeeld “.pdf” heet maar geen echte PDF is, wordt geweigerd.</p></div>
-              <div><strong>Duplicaten</strong><p>De SHA-256 vingerafdruk helpt exact hetzelfde bestand herkennen zonder de inhoud te moeten vergelijken op basis van een gok.</p></div>
-              <div><strong>Origineel blijft origineel</strong><p>AI-resultaten worden later apart opgeslagen. Ze vervangen nooit het document dat jij hebt geüpload.</p></div>
+              <div><strong>Geen stille AI-gok</strong><p>Kan een veld niet betrouwbaar worden gelezen, dan blijft het onbekend. Ook een ontbrekende valuta wordt niet automatisch als euro ingevuld.</p></div>
+              <div><strong>Origineel blijft origineel</strong><p>Uitleesresultaten worden apart opgeslagen en vervangen nooit het document dat jij hebt geüpload.</p></div>
             </div>
           </details>
         </section>
@@ -93,17 +95,6 @@ export default function FacturenPage() {
             </div>
           </details>
           <p className="source-note">Bron: officiële Belgische e-facturatie-informatie. Regel gecontroleerd op 2 september 2026.</p>
-        </section>
-
-        <section className="card invoices-empty-state">
-          <div className="empty-icon" aria-hidden="true">↥</div>
-          <h2>Na upload komt hier de uitleesstap</h2>
-          <p className="muted">De veilige opslag is nu de eerste werkende stap. Daarna voegen we AI-uitlezing toe voor leverancier, datum, bedragen, btw, type en categorie, met een aparte controle voor twijfelgevallen.</p>
-          <div className="empty-state-steps" aria-label="Factuurflow">
-            <span><strong>1.</strong> Veilig uploaden</span>
-            <span><strong>2.</strong> Uitlezen en controleren</span>
-            <span><strong>3.</strong> Alleen twijfelgevallen nakijken</span>
-          </div>
         </section>
 
         <section className="invoice-learning-section" aria-labelledby="terms-title">
