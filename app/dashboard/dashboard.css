@@ -1,5 +1,6 @@
 .dashboard-main { display: grid; gap: 18px; }
 .dashboard-heading { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 2px; }
+.dashboard-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
 .dashboard-heading h1 { margin: 7px 0 8px; font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.05; letter-spacing: -.045em; }
 .dashboard-heading p { margin: 0; max-width: 680px; line-height: 1.55; }
 .dashboard-status-card { display: grid; gap: 13px; padding: 22px; }
@@ -34,6 +35,7 @@
 
 @media (max-width: 700px) {
   .dashboard-heading { display: grid; gap: 16px; }
+  .dashboard-heading-actions { justify-content: flex-start; }
   .dashboard-heading .button { justify-self: start; }
   .dashboard-lower-grid { grid-template-columns: 1fr; }
   .dashboard-lower-grid > :last-child { grid-column: auto; }
