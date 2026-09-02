@@ -5,6 +5,21 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+const allowedPostLoginPaths = ["/onboarding", "/dashboard", "/facturen"];
+
+function getSafePostLoginPath() {
+  if (typeof window === "undefined") return "/onboarding";
+
+  const requested = new URLSearchParams(window.location.search).get("next");
+  if (!requested) return "/onboarding";
+
+  const allowed = allowedPostLoginPaths.some(
+    (path) => requested === path || requested.startsWith(`${path}/`),
+  );
+
+  return allowed ? requested : "/onboarding";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "signup" | "recovery">("login");
@@ -68,7 +83,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/onboarding");
+    router.push(getSafePostLoginPath());
     router.refresh();
   }
 
