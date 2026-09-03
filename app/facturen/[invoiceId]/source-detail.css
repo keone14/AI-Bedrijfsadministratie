@@ -1,0 +1,29 @@
+.invoice-source-page { width: min(100%, 920px); margin: 0 auto; padding: 28px 18px 56px; }
+.invoice-source-topbar { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.invoice-source-card { display: grid; gap: 22px; }
+.invoice-source-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.invoice-source-heading h1 { margin: 4px 0 8px; font-size: clamp(1.9rem, 5vw, 2.8rem); line-height: 1.08; letter-spacing: -.04em; }
+.invoice-source-heading p { margin: 0; max-width: 660px; line-height: 1.55; }
+.invoice-source-status { flex: 0 0 auto; border-radius: 999px; padding: 7px 10px; font-size: .8rem; font-weight: 750; }
+.invoice-source-status.is-ok { color: #245b43; background: #f0f8f4; border: 1px solid #cce2d7; }
+.invoice-source-status.is-review { color: #7a5316; background: #fffaf2; border: 1px solid #ead7b8; }
+.invoice-source-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.invoice-source-grid > div { min-width: 0; display: grid; gap: 5px; padding: 14px 15px; border-top: 1px solid var(--line); }
+.invoice-source-grid > div:nth-child(-n+2) { border-top: 0; }
+.invoice-source-grid > div:nth-child(odd) { border-right: 1px solid var(--line); }
+.invoice-source-grid span, .invoice-source-description > span { color: var(--muted); font-size: .82rem; }
+.invoice-source-grid strong { overflow-wrap: anywhere; }
+.invoice-source-description { display: grid; gap: 6px; }
+.invoice-source-description p { margin: 0; line-height: 1.55; }
+.invoice-source-note { border: 1px solid #d8e3e8; background: #f8fbfc; border-radius: 11px; padding: 14px 15px; }
+.invoice-source-note p { margin: 6px 0 0; color: var(--muted); line-height: 1.5; }
+
+@media (max-width: 620px) {
+  .invoice-source-page { padding: 18px 14px 40px; }
+  .invoice-source-topbar { align-items: flex-start; }
+  .invoice-source-heading { display: grid; gap: 12px; }
+  .invoice-source-status { justify-self: start; }
+  .invoice-source-grid { grid-template-columns: 1fr; }
+  .invoice-source-grid > div, .invoice-source-grid > div:nth-child(-n+2) { border-top: 1px solid var(--line); border-right: 0; }
+  .invoice-source-grid > div:first-child { border-top: 0; }
+}
