@@ -22,7 +22,7 @@ test("invoice review correction and confirmation works without horizontal overfl
     });
   });
 
-  await page.goto("/__e2e/review");
+  await page.goto("/e2e-review-fixture");
   await expect(page.getByRole("heading", { name: "Factuur nakijken" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ja, dit klopt" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Aanpassen" })).toBeVisible();
@@ -60,7 +60,7 @@ test("invoice review correction and confirmation works without horizontal overfl
 });
 
 test("cancel discards unsaved invoice edits", async ({ page }) => {
-  await page.goto("/__e2e/review");
+  await page.goto("/e2e-review-fixture");
   await page.getByRole("button", { name: "Aanpassen" }).click();
   await page.locator("#correction-supplier").fill("Niet opgeslagen leverancier");
   await page.getByRole("button", { name: "Annuleren" }).click();
