@@ -29,12 +29,14 @@ test("every dashboard amount shows the exact source invoices and contributions",
   await expect(revenueTrace).toContainText("Klant Alpha");
   await expect(revenueTrace).toContainText("V-2026-001");
   await expect(revenueTrace).toContainText("1.000,00");
+  await expect(revenueTrace.getByRole("link", { name: "Bekijk factuur" })).toHaveAttribute("href", "/facturen/sale-1");
 
   const costsTrace = page.getByTestId("dashboard-costs-trace");
   await costsTrace.locator("summary").click();
   await expect(costsTrace.getByTestId("dashboard-trace-row")).toHaveCount(1);
   await expect(costsTrace).toContainText("Leverancier Beta");
   await expect(costsTrace).toContainText("200,00");
+  await expect(costsTrace.getByRole("link", { name: "Bekijk factuur" })).toHaveAttribute("href", "/facturen/purchase-1");
 
   const differenceTrace = page.getByTestId("dashboard-difference-trace");
   await differenceTrace.locator("summary").click();
@@ -88,4 +90,5 @@ test("confirmed credit note reduces totals and appears as a negative source cont
   await expect(revenueTrace).toContainText("Creditnota");
   await expect(revenueTrace).toContainText("CN-2026-001");
   await expect(revenueTrace).toContainText("€ -100,00");
+  await expect(revenueTrace.getByRole("link", { name: "Bekijk factuur" }).nth(1)).toHaveAttribute("href", "/facturen/sale-credit-1");
 });
