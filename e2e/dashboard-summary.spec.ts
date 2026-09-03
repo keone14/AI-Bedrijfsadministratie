@@ -40,13 +40,13 @@ test("every dashboard amount shows the exact source invoices and contributions",
   await differenceTrace.locator("summary").click();
   await expect(differenceTrace.getByTestId("dashboard-trace-row")).toHaveCount(2);
   await expect(differenceTrace).toContainText("1.000,00");
-  await expect(differenceTrace).toContainText("-€ 200,00");
+  await expect(differenceTrace).toContainText("€ -200,00");
 
   const vatTrace = page.getByTestId("dashboard-vat-trace");
   await vatTrace.locator("summary").click();
   await expect(vatTrace.getByTestId("dashboard-trace-row")).toHaveCount(2);
   await expect(vatTrace).toContainText("210,00");
-  await expect(vatTrace).toContainText("-€ 42,00");
+  await expect(vatTrace).toContainText("€ -42,00");
 
   const hasHorizontalOverflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
@@ -87,5 +87,5 @@ test("confirmed credit note reduces totals and appears as a negative source cont
   await expect(revenueTrace.getByTestId("dashboard-trace-row")).toHaveCount(2);
   await expect(revenueTrace).toContainText("Creditnota");
   await expect(revenueTrace).toContainText("CN-2026-001");
-  await expect(revenueTrace).toContainText("-€ 100,00");
+  await expect(revenueTrace).toContainText("€ -100,00");
 });
