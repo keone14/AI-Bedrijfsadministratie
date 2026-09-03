@@ -22,3 +22,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: test-publishable-key
+      - name: Install Chromium for browser E2E
+        run: npx playwright install --with-deps chromium
+      - name: Run desktop and mobile invoice review E2E
+        run: npm run test:e2e
