@@ -15,9 +15,13 @@ const period: DashboardPeriod = {
   label: "september 2026",
 };
 
-export default async function DashboardE2EFixturePage({ searchParams }: { searchParams: Promise<{ confirmed?: string }> }) {
+export default async function DashboardE2EFixturePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ confirmed?: string; mixed?: string }>;
+}) {
   if (process.env.E2E_TEST_MODE !== "1") notFound();
-  const { confirmed } = await searchParams;
+  const { confirmed, mixed } = await searchParams;
 
   const invoices: DashboardInvoice[] = [
     {
@@ -35,7 +39,7 @@ export default async function DashboardE2EFixturePage({ searchParams }: { search
       id: "purchase-1",
       invoiceType: "purchase",
       invoiceDate: "2026-09-02",
-      currency: "EUR",
+      currency: mixed === "1" ? "USD" : "EUR",
       subtotal: 200,
       vatAmount: 42,
       total: 242,
@@ -50,6 +54,7 @@ export default async function DashboardE2EFixturePage({ searchParams }: { search
     <main style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 16px" }}>
       <h1>Dashboard test</h1>
       <p data-testid="reliable-count">{summary.reliableInvoiceCount}</p>
+      <p data-testid="summary-status">{summary.status}</p>
       <FinancialOverview summary={summary} />
     </main>
   );
