@@ -21,6 +21,9 @@ const nav = [
   { label: "Bedrijf", href: "/onboarding" },
 ];
 
+const invoicePageSize = 1000;
+const documentBatchSize = 200;
+
 type InvoiceRow = {
   id: string;
   document_id: string;
@@ -90,27 +93,36 @@ async function loadDashboardData(): Promise<DashboardData> {
     if (memberships.length > 1) return { summary: emptySummary("error"), recentInvoices: [], companyState: "multiple_companies", totalInvoiceCount: 0 };
 
     const companyId = memberships[0].company_id as string;
-    const { data: invoiceData, error: invoiceError } = await supabase
-      .from("invoices")
-      .select("id, document_id, supplier_name, customer_name, invoice_type, invoice_date, currency, subtotal, vat_amount, total, review_status, created_at")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false })
-      .limit(500);
+    const invoices: InvoiceRow[] = [];
+    let offset = 0;
 
-    if (invoiceError) return { summary: emptySummary("error"), recentInvoices: [], companyState: "error", totalInvoiceCount: 0 };
+    while (true) {
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from("invoices")
+        .select("id, document_id, supplier_name, customer_name, invoice_type, invoice_date, currency, subtotal, vat_amount, total, review_status, created_at")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + invoicePageSize - 1);
 
-    const invoices = (invoiceData ?? []) as InvoiceRow[];
+      if (invoiceError) return { summary: emptySummary("error"), recentInvoices: [], companyState: "error", totalInvoiceCount: 0 };
+      const page = (invoiceData ?? []) as InvoiceRow[];
+      invoices.push(...page);
+      if (page.length < invoicePageSize) break;
+      offset += invoicePageSize;
+    }
+
     const documentIds = Array.from(new Set(invoices.map((invoice) => invoice.document_id)));
-    let documents = new Map<string, DocumentRow>();
+    const documents = new Map<string, DocumentRow>();
 
-    if (documentIds.length) {
+    for (let index = 0; index < documentIds.length; index += documentBatchSize) {
+      const batch = documentIds.slice(index, index + documentBatchSize);
       const { data: documentData, error: documentError } = await supabase
         .from("documents")
         .select("id, document_type")
         .eq("company_id", companyId)
-        .in("id", documentIds);
+        .in("id", batch);
       if (documentError) return { summary: emptySummary("error"), recentInvoices: [], companyState: "error", totalInvoiceCount: invoices.length };
-      documents = new Map(((documentData ?? []) as DocumentRow[]).map((document) => [document.id, document]));
+      for (const document of (documentData ?? []) as DocumentRow[]) documents.set(document.id, document);
     }
 
     const calculationRows: DashboardInvoice[] = invoices.map((invoice) => ({
