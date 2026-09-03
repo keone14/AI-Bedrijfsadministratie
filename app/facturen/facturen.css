@@ -55,8 +55,15 @@
 .invoice-correction-intro { display: grid; gap: 4px; }
 .invoice-correction-intro span { color: #475467; font-size: .86rem; line-height: 1.5; }
 .invoice-correction-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 11px; }
-.invoice-correction-grid label { display: grid; gap: 6px; min-width: 0; }
-.invoice-correction-grid label > span { color: #475467; font-size: .8rem; font-weight: 700; }
+.invoice-correction-field { display: grid; gap: 6px; min-width: 0; }
+.invoice-correction-label-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px; min-height: 34px; }
+.invoice-correction-label-row > label { color: #475467; font-size: .8rem; font-weight: 700; }
+.invoice-field-help { position: relative; }
+.invoice-field-help > summary { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid #d5dee4; border-radius: 999px; background: #fff; color: #52616d; font-size: .82rem; font-weight: 800; cursor: pointer; list-style: none; user-select: none; }
+.invoice-field-help > summary::-webkit-details-marker { display: none; }
+.invoice-field-help > summary:focus-visible { outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); outline-offset: 2px; }
+.invoice-field-help > div { position: absolute; z-index: 5; top: 38px; right: 0; width: min(300px, calc(100vw - 48px)); border: 1px solid #d5dee4; border-radius: 10px; background: #fff; box-shadow: 0 10px 28px rgba(16, 24, 40, .12); padding: 10px 11px; color: #475467; font-size: .82rem; line-height: 1.5; }
+.invoice-correction-field > small { color: var(--muted); font-size: .76rem; line-height: 1.4; }
 .invoice-correction-grid input, .invoice-correction-grid select, .invoice-correction-grid textarea { width: 100%; border: 1px solid #cfd8df; border-radius: 9px; background: #fff; padding: 10px 11px; color: var(--text); font: inherit; }
 .invoice-correction-grid textarea { resize: vertical; min-height: 82px; }
 .invoice-correction-grid input:focus, .invoice-correction-grid select:focus, .invoice-correction-grid textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); }
@@ -111,6 +118,7 @@
   .invoice-review-actions, .invoice-correction-footer { display: grid; }
   .invoice-review-actions .button, .invoice-correction-footer .button { width: 100%; }
   .invoice-correction-panel { padding: 13px; }
+  .invoice-field-help > div { width: min(280px, calc(100vw - 40px)); }
   .invoice-compliance-card { padding: 17px; }
   .invoices-empty-state { padding: 32px 16px; }
   .empty-state-steps { display: grid; width: 100%; }
