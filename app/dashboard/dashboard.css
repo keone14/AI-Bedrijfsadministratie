@@ -7,10 +7,13 @@
 .dashboard-status-card p { margin: 0; }
 .status-neutral { color: #344054; }
 .dot-neutral { background: #98a2b3; }
+.status-review { color: #8a5b17; }
+.dot-review { background: var(--warn); }
+.dashboard-warning { border: 1px solid #ead7b8; background: #fffaf2; color: #7a5316; border-radius: 10px; padding: 10px 12px; line-height: 1.45; }
 .dashboard-metrics { margin: 0; }
-.metric-card { min-height: 225px; display: flex; flex-direction: column; }
+.metric-card { min-height: 225px; display: flex; flex-direction: column; min-width: 0; }
 .metric-label { color: #475467; font-weight: 700; }
-.kpi-empty { font-size: clamp(1.35rem, 3vw, 1.8rem); color: #344054; line-height: 1.15; }
+.kpi-empty { font-size: clamp(1.35rem, 3vw, 1.8rem); color: #344054; line-height: 1.15; overflow-wrap: anywhere; }
 .dashboard-help { margin-top: auto; }
 .dashboard-help .help-details-body { margin-bottom: 0; }
 .dashboard-lower-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -23,6 +26,13 @@
 .action-number { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 800; }
 .empty-state { border: 1px dashed #d0d5dd; border-radius: 12px; padding: 16px; background: #fbfcfd; }
 .empty-state p { margin: 7px 0 0; line-height: 1.5; }
+.dashboard-recent-list { display: grid; gap: 0; margin-top: 8px; }
+.dashboard-recent-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+.dashboard-recent-item:first-child { border-top: 0; padding-top: 4px; }
+.dashboard-recent-item > div { min-width: 0; display: grid; gap: 3px; }
+.dashboard-recent-item > div:last-child { text-align: right; }
+.dashboard-recent-item strong { overflow-wrap: anywhere; }
+.dashboard-recent-item span { color: var(--muted); font-size: .82rem; line-height: 1.35; }
 .nav-disabled { color: #98a2b3; padding: 11px 12px; border-radius: 10px; font-weight: 550; display: grid; gap: 2px; cursor: not-allowed; }
 .nav-disabled small { font-size: .68rem; font-weight: 500; color: #b0b7c3; }
 .mobile-nav span { text-align: center; color: #98a2b3; font-size: .78rem; padding: 7px 2px; }
@@ -41,4 +51,6 @@
   .dashboard-lower-grid > :last-child { grid-column: auto; }
   .metric-card { min-height: auto; }
   .dashboard-help { margin-top: 12px; }
+  .dashboard-recent-item { display: grid; gap: 8px; }
+  .dashboard-recent-item > div:last-child { text-align: left; }
 }
