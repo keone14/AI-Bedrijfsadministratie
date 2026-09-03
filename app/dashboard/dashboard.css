@@ -14,6 +14,19 @@
 .metric-card { min-height: 225px; display: flex; flex-direction: column; min-width: 0; }
 .metric-label { color: #475467; font-weight: 700; }
 .kpi-empty { font-size: clamp(1.35rem, 3vw, 1.8rem); color: #344054; line-height: 1.15; overflow-wrap: anywhere; }
+.dashboard-trace { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.dashboard-trace summary { width: fit-content; color: var(--accent); cursor: pointer; font-weight: 750; font-size: .9rem; }
+.dashboard-trace-body { display: grid; gap: 11px; margin-top: 11px; }
+.dashboard-trace-body > p { margin: 0; font-size: .86rem; line-height: 1.5; }
+.dashboard-trace-list { display: grid; border: 1px solid var(--line); border-radius: 11px; overflow: hidden; background: #fbfcfd; }
+.dashboard-trace-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .9fr) auto; gap: 10px; align-items: center; padding: 11px 12px; border-top: 1px solid var(--line); }
+.dashboard-trace-row:first-child { border-top: 0; }
+.dashboard-trace-row > div { display: grid; gap: 2px; min-width: 0; }
+.dashboard-trace-row strong { font-size: .86rem; overflow-wrap: anywhere; }
+.dashboard-trace-row span { color: var(--muted); font-size: .76rem; line-height: 1.35; overflow-wrap: anywhere; }
+.dashboard-trace-value { text-align: right; }
+.dashboard-trace-link { color: var(--accent); font-weight: 700; font-size: .8rem; white-space: nowrap; }
+.trace-empty { margin: 0; font-size: .86rem; line-height: 1.45; }
 .dashboard-help { margin-top: auto; }
 .dashboard-help .help-details-body { margin-bottom: 0; }
 .dashboard-lower-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -50,6 +63,9 @@
   .dashboard-lower-grid { grid-template-columns: 1fr; }
   .dashboard-lower-grid > :last-child { grid-column: auto; }
   .metric-card { min-height: auto; }
+  .dashboard-trace-row { grid-template-columns: 1fr auto; align-items: start; }
+  .dashboard-trace-value { text-align: right; }
+  .dashboard-trace-link { grid-column: 1 / -1; justify-self: start; padding: 4px 0; }
   .dashboard-help { margin-top: 12px; }
   .dashboard-recent-item { display: grid; gap: 8px; }
   .dashboard-recent-item > div:last-child { text-align: left; }
