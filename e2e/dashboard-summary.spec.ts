@@ -34,3 +34,12 @@ test("dashboard refuses to combine different currencies", async ({ page }) => {
   );
   expect(hasHorizontalOverflow).toBe(false);
 });
+
+test("confirmed credit note reduces revenue and VAT instead of increasing them", async ({ page }) => {
+  await page.goto("/e2e-dashboard-fixture?confirmed=1&credit=1");
+  await expect(page.getByTestId("reliable-count")).toHaveText("3");
+  await expect(page.getByTestId("dashboard-revenue")).toContainText("900,00");
+  await expect(page.getByTestId("dashboard-costs")).toContainText("200,00");
+  await expect(page.getByTestId("dashboard-difference")).toContainText("700,00");
+  await expect(page.getByTestId("dashboard-vat")).toContainText("147,00");
+});
