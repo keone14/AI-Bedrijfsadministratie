@@ -71,14 +71,38 @@ function confidenceCopy(value: number | null) {
 
 function needsAttention(row: ExtractionRow) { return row.confidence < 0.9 || row.proposed_value_json === null; }
 
-function categoryReason(options: { corrected: boolean; learnedPreferenceApplied: boolean; supplierName: string | null; categoryLabel: string }) {
+function compactEvidence(value: string, maxLength = 140) {
+  const clean = value.replace(/\s+/g, " ").trim();
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function categoryReason(options: {
+  corrected: boolean;
+  learnedPreferenceApplied: boolean;
+  supplierName: string | null;
+  description: string | null;
+  categoryLabel: string;
+}) {
   if (options.corrected) {
     return `Jij hebt deze factuur zelf bij ${options.categoryLabel} gezet. We bewaren die keuze als jouw correctie en gebruiken ze alleen als bedrijfsvoorkeur wanneer dat veilig past.`;
   }
   if (options.learnedPreferenceApplied && options.supplierName) {
     return `Je koos eerder voor ${options.categoryLabel} bij ${options.supplierName}. Daarom is die bewaarde voorkeur nu opnieuw toegepast binnen jouw bedrijf.`;
   }
-  return `Deze categorie is automatisch voorgesteld op basis van de beschikbare factuurgegevens, zoals leverancier en omschrijving. Controleer ze gerust als de aankoop of verkoop in werkelijkheid voor iets anders bedoeld was.`;
+
+  const supplier = options.supplierName?.trim();
+  const description = options.description?.trim();
+  if (supplier && description) {
+    return `De factuur komt van ${supplier} en de gelezen omschrijving is “${compactEvidence(description)}”. Op basis van die concrete gegevens is ${options.categoryLabel} voorgesteld. Controleer dit als de aankoop of verkoop in werkelijkheid voor iets anders bedoeld was.`;
+  }
+  if (supplier) {
+    return `De leverancier is ${supplier}. Op basis van die leverancier en de overige beschikbare factuurgegevens is ${options.categoryLabel} voorgesteld. De omschrijving geeft onvoldoende extra context, dus controleer de categorie als deze leverancier verschillende soorten producten of diensten levert.`;
+  }
+  if (description) {
+    return `De gelezen omschrijving is “${compactEvidence(description)}”. Op basis daarvan en de overige beschikbare factuurgegevens is ${options.categoryLabel} voorgesteld. De leverancier is niet betrouwbaar bekend, dus controleer deze keuze gerust.`;
+  }
+  return `Er is te weinig duidelijke broninformatie om deze categorie sterk te motiveren. ${options.categoryLabel} is alleen een voorstel op basis van de beperkte beschikbare factuurcontext. Controleer de categorie voordat je de factuur bevestigt.`;
 }
 
 export default async function InvoiceList() {
@@ -203,7 +227,7 @@ export default async function InvoiceList() {
                       <summary>Waarom deze categorie?</summary>
                       <div>
                         <strong>{categoryLabel}</strong>
-                        <p>{categoryReason({ corrected: corrected.has("categoryId"), learnedPreferenceApplied: learnedPreferenceInvoices.has(invoice.id), supplierName: invoice.supplier_name, categoryLabel })}</p>
+                        <p>{categoryReason({ corrected: corrected.has("categoryId"), learnedPreferenceApplied: learnedPreferenceInvoices.has(invoice.id), supplierName: invoice.supplier_name, description: invoice.description, categoryLabel })}</p>
                         {!isConfirmed ? <span>Klopt de categorie niet? Kies <strong>Aanpassen</strong> en selecteer de juiste eenvoudige categorie.</span> : null}
                       </div>
                     </details>
