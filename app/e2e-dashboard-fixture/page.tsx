@@ -18,10 +18,10 @@ const period: DashboardPeriod = {
 export default async function DashboardE2EFixturePage({
   searchParams,
 }: {
-  searchParams: Promise<{ confirmed?: string; mixed?: string }>;
+  searchParams: Promise<{ confirmed?: string; mixed?: string; credit?: string }>;
 }) {
   if (process.env.E2E_TEST_MODE !== "1") notFound();
-  const { confirmed, mixed } = await searchParams;
+  const { confirmed, mixed, credit } = await searchParams;
 
   const invoices: DashboardInvoice[] = [
     {
@@ -47,6 +47,20 @@ export default async function DashboardE2EFixturePage({
       documentType: "invoice",
     },
   ];
+
+  if (credit === "1") {
+    invoices.push({
+      id: "sale-credit-1",
+      invoiceType: "sale",
+      invoiceDate: "2026-09-04",
+      currency: "EUR",
+      subtotal: 100,
+      vatAmount: 21,
+      total: 121,
+      reviewStatus: "confirmed",
+      documentType: "credit_note",
+    });
+  }
 
   const summary = calculateDashboardFinancialSummary(invoices, period);
 
