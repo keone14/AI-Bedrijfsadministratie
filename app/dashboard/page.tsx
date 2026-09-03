@@ -6,7 +6,7 @@ import {
   type DashboardFinancialSummary,
   type DashboardInvoice,
 } from "@/lib/dashboard/financial-summary";
-import FinancialOverview from "./financial-overview";
+import FinancialOverview, { type DashboardTraceInvoice } from "./financial-overview";
 import "./dashboard.css";
 import LogoutButton from "./logout-button";
 
@@ -29,6 +29,7 @@ type InvoiceRow = {
   document_id: string;
   supplier_name: string | null;
   customer_name: string | null;
+  invoice_number: string | null;
   invoice_type: string | null;
   invoice_date: string | null;
   currency: string | null;
@@ -43,6 +44,7 @@ type DocumentRow = { id: string; document_type: string | null };
 
 type DashboardData = {
   summary: DashboardFinancialSummary;
+  traceInvoices: DashboardTraceInvoice[];
   recentInvoices: InvoiceRow[];
   companyState: "ready" | "no_company" | "multiple_companies" | "error";
   totalInvoiceCount: number;
@@ -62,11 +64,16 @@ function emptySummary(status: "no_data" | "error"): DashboardFinancialSummary {
     estimatedVatDifference: null,
     includedInvoiceIds: [],
     excludedInvoiceIds: [],
+    traces: { revenue: [], costs: [], difference: [], estimatedVatDifference: [] },
     reliableInvoiceCount: 0,
     needsReviewCount: 0,
     undatedInvoiceCount: 0,
     calculationVersion: "dashboard-v1-2026-09-03",
   };
+}
+
+function emptyData(summaryStatus: "no_data" | "error", companyState: DashboardData["companyState"]): DashboardData {
+  return { summary: emptySummary(summaryStatus), traceInvoices: [], recentInvoices: [], companyState, totalInvoiceCount: 0 };
 }
 
 function toNumber(value: number | null) {
@@ -79,7 +86,7 @@ async function loadDashboardData(): Promise<DashboardData> {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { summary: emptySummary("error"), recentInvoices: [], companyState: "error", totalInvoiceCount: 0 };
+    if (!user) return emptyData("error", "error");
 
     const { data: memberships, error: membershipError } = await supabase
       .from("company_members")
@@ -88,9 +95,9 @@ async function loadDashboardData(): Promise<DashboardData> {
       .eq("status", "active")
       .limit(2);
 
-    if (membershipError) return { summary: emptySummary("error"), recentInvoices: [], companyState: "error", totalInvoiceCount: 0 };
-    if (!memberships?.length) return { summary: emptySummary("no_data"), recentInvoices: [], companyState: "no_company", totalInvoiceCount: 0 };
-    if (memberships.length > 1) return { summary: emptySummary("error"), recentInvoices: [], companyState: "multiple_companies", totalInvoiceCount: 0 };
+    if (membershipError) return emptyData("error", "error");
+    if (!memberships?.length) return emptyData("no_data", "no_company");
+    if (memberships.length > 1) return emptyData("error", "multiple_companies");
 
     const companyId = memberships[0].company_id as string;
     const invoices: InvoiceRow[] = [];
@@ -99,12 +106,12 @@ async function loadDashboardData(): Promise<DashboardData> {
     while (true) {
       const { data: invoiceData, error: invoiceError } = await supabase
         .from("invoices")
-        .select("id, document_id, supplier_name, customer_name, invoice_type, invoice_date, currency, subtotal, vat_amount, total, review_status, created_at")
+        .select("id, document_id, supplier_name, customer_name, invoice_number, invoice_type, invoice_date, currency, subtotal, vat_amount, total, review_status, created_at")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false })
         .range(offset, offset + invoicePageSize - 1);
 
-      if (invoiceError) return { summary: emptySummary("error"), recentInvoices: [], companyState: "error", totalInvoiceCount: 0 };
+      if (invoiceError) return emptyData("error", "error");
       const page = (invoiceData ?? []) as InvoiceRow[];
       invoices.push(...page);
       if (page.length < invoicePageSize) break;
@@ -121,7 +128,7 @@ async function loadDashboardData(): Promise<DashboardData> {
         .select("id, document_type")
         .eq("company_id", companyId)
         .in("id", batch);
-      if (documentError) return { summary: emptySummary("error"), recentInvoices: [], companyState: "error", totalInvoiceCount: invoices.length };
+      if (documentError) return emptyData("error", "error");
       for (const document of (documentData ?? []) as DocumentRow[]) documents.set(document.id, document);
     }
 
@@ -141,14 +148,27 @@ async function loadDashboardData(): Promise<DashboardData> {
           : null,
     }));
 
+    const traceInvoices: DashboardTraceInvoice[] = invoices.map((invoice) => ({
+      id: invoice.id,
+      title: invoice.supplier_name ?? invoice.customer_name ?? "Factuur",
+      invoiceNumber: invoice.invoice_number,
+      invoiceDate: invoice.invoice_date,
+      documentType: documents.get(invoice.document_id)?.document_type === "credit_note"
+        ? "credit_note"
+        : documents.get(invoice.document_id)?.document_type === "invoice"
+          ? "invoice"
+          : null,
+    }));
+
     return {
       summary: calculateDashboardFinancialSummary(calculationRows, currentBelgianMonthPeriod()),
+      traceInvoices,
       recentInvoices: invoices.slice(0, 5),
       companyState: "ready",
       totalInvoiceCount: invoices.length,
     };
   } catch {
-    return { summary: emptySummary("error"), recentInvoices: [], companyState: "error", totalInvoiceCount: 0 };
+    return emptyData("error", "error");
   }
 }
 
@@ -212,7 +232,7 @@ export default async function DashboardPage() {
           {summary.status === "mixed_currency" ? <p className="dashboard-warning">Meerdere valuta gevonden: {summary.currencies.join(", ")}. We maken daar bewust geen fout gecombineerd totaal van.</p> : null}
         </section>
 
-        <FinancialOverview summary={summary} />
+        <FinancialOverview summary={summary} traceInvoices={data.traceInvoices} />
 
         <section className="dashboard-lower-grid">
           <article className="card action-card">
