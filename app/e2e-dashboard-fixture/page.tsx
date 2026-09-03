@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import FinancialOverview from "../dashboard/financial-overview";
+import FinancialOverview, { type DashboardTraceInvoice } from "../dashboard/financial-overview";
 import "../dashboard/dashboard.css";
 import {
   calculateDashboardFinancialSummary,
@@ -48,6 +48,11 @@ export default async function DashboardE2EFixturePage({
     },
   ];
 
+  const traceInvoices: DashboardTraceInvoice[] = [
+    { id: "sale-1", title: "Klant Alpha", invoiceNumber: "V-2026-001", invoiceDate: "2026-09-03", documentType: "invoice" },
+    { id: "purchase-1", title: "Leverancier Beta", invoiceNumber: "A-2026-017", invoiceDate: "2026-09-02", documentType: "invoice" },
+  ];
+
   if (credit === "1") {
     invoices.push({
       id: "sale-credit-1",
@@ -60,6 +65,7 @@ export default async function DashboardE2EFixturePage({
       reviewStatus: "confirmed",
       documentType: "credit_note",
     });
+    traceInvoices.push({ id: "sale-credit-1", title: "Klant Alpha", invoiceNumber: "CN-2026-001", invoiceDate: "2026-09-04", documentType: "credit_note" });
   }
 
   const summary = calculateDashboardFinancialSummary(invoices, period);
@@ -69,7 +75,7 @@ export default async function DashboardE2EFixturePage({
       <h1>Dashboard test</h1>
       <p data-testid="reliable-count">{summary.reliableInvoiceCount}</p>
       <p data-testid="summary-status">{summary.status}</p>
-      <FinancialOverview summary={summary} />
+      <FinancialOverview summary={summary} traceInvoices={traceInvoices} />
     </main>
   );
 }
