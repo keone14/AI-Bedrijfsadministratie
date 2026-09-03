@@ -21,6 +21,16 @@ test("dashboard excludes uncertain invoice and updates after confirmation", asyn
 });
 
 test("dashboard refuses to combine different currencies", async ({ page }) => {
-  await page.goto("/e2e-dashboard-fixture?confirmed=1");
-  await expect(page.getByRole("region", { name: "Financieel overzicht voor september 2026" })).toBeVisible();
+  await page.goto("/e2e-dashboard-fixture?confirmed=1&mixed=1");
+  await expect(page.getByTestId("summary-status")).toHaveText("mixed_currency");
+  await expect(page.getByTestId("reliable-count")).toHaveText("2");
+  await expect(page.getByTestId("dashboard-revenue")).toHaveText("Meerdere valuta");
+  await expect(page.getByTestId("dashboard-costs")).toHaveText("Meerdere valuta");
+  await expect(page.getByTestId("dashboard-difference")).toHaveText("Meerdere valuta");
+  await expect(page.getByTestId("dashboard-vat")).toHaveText("Meerdere valuta");
+
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
 });
