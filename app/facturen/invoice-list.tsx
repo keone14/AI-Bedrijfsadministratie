@@ -71,6 +71,11 @@ function confidenceCopy(value: number | null) {
 
 function needsAttention(row: ExtractionRow) { return row.confidence < 0.9 || row.proposed_value_json === null; }
 
+function hasArithmeticMismatch(invoice: InvoiceRow) {
+  if (invoice.subtotal === null || invoice.vat_amount === null || invoice.total === null) return false;
+  return Math.abs((invoice.subtotal + invoice.vat_amount) - invoice.total) > 0.02;
+}
+
 function compactEvidence(value: string, maxLength = 140) {
   const clean = value.replace(/\s+/g, " ").trim();
   if (clean.length <= maxLength) return clean;
@@ -185,6 +190,7 @@ export default async function InvoiceList() {
           const requiresReview = job?.status === "needs_review" && !isConfirmed;
           const canReviewOrCorrect = hasExtraction && !isConfirmed && job?.status !== "processing" && job?.status !== "failed";
           const categoryLabel = invoice.category_id ? categoryLabels.get(invoice.category_id) ?? "Onbekende categorie" : null;
+          const amountsMismatch = hasArithmeticMismatch(invoice);
 
           return (
             <article className="card invoice-record-card" key={invoice.id}>
@@ -208,6 +214,13 @@ export default async function InvoiceList() {
 
                   {requiresReview && uncertainFields.length ? (
                     <div className="invoice-uncertain-fields" aria-label="Velden om na te kijken"><strong>Controleer vooral:</strong><div>{uncertainFields.slice(0, 6).map((row) => <span key={row.field_name}>{fieldLabels[row.field_name] ?? row.field_name}</span>)}</div></div>
+                  ) : null}
+
+                  {amountsMismatch ? (
+                    <div className="invoice-read-warning" role="status">
+                      <strong>De bedragen op deze factuur lijken niet helemaal op te tellen.</strong>
+                      <span>Bedrag zonder btw + btw komt niet overeen met het totaal. Controleer deze drie bedragen voordat je bevestigt.</span>
+                    </div>
                   ) : null}
 
                   <div className="invoice-read-grid">
