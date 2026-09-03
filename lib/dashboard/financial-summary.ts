@@ -16,6 +16,19 @@ export type DashboardPeriod = {
   label: string;
 };
 
+export type DashboardTraceLine = {
+  invoiceId: string;
+  contribution: number;
+  basis: "subtotal" | "vat";
+};
+
+export type DashboardMetricTraces = {
+  revenue: DashboardTraceLine[];
+  costs: DashboardTraceLine[];
+  difference: DashboardTraceLine[];
+  estimatedVatDifference: DashboardTraceLine[];
+};
+
 export type DashboardFinancialSummary = {
   status: "no_data" | "available" | "incomplete" | "mixed_currency" | "error";
   period: DashboardPeriod;
@@ -29,6 +42,7 @@ export type DashboardFinancialSummary = {
   estimatedVatDifference: number | null;
   includedInvoiceIds: string[];
   excludedInvoiceIds: string[];
+  traces: DashboardMetricTraces;
   reliableInvoiceCount: number;
   needsReviewCount: number;
   undatedInvoiceCount: number;
@@ -56,6 +70,10 @@ function isReliableForTotals(invoice: DashboardInvoice) {
   if (!invoice.currency || !/^[A-Z]{3}$/.test(invoice.currency)) return false;
   if (!validAmount(invoice.subtotal) || !validAmount(invoice.vatAmount) || !validAmount(invoice.total)) return false;
   return Math.abs((invoice.subtotal + invoice.vatAmount) - invoice.total) <= 0.02;
+}
+
+function emptyTraces(): DashboardMetricTraces {
+  return { revenue: [], costs: [], difference: [], estimatedVatDifference: [] };
 }
 
 export function currentBelgianMonthPeriod(now = new Date()): DashboardPeriod {
@@ -112,6 +130,7 @@ export function calculateDashboardFinancialSummary(
       vatReceived: null,
       vatOnPurchases: null,
       estimatedVatDifference: null,
+      traces: emptyTraces(),
     };
   }
 
@@ -126,6 +145,7 @@ export function calculateDashboardFinancialSummary(
       vatReceived: null,
       vatOnPurchases: null,
       estimatedVatDifference: null,
+      traces: emptyTraces(),
     };
   }
 
@@ -133,15 +153,31 @@ export function calculateDashboardFinancialSummary(
   let costs = 0;
   let vatReceived = 0;
   let vatOnPurchases = 0;
+  const traces = emptyTraces();
 
   for (const invoice of reliable) {
-    const sign = invoice.documentType === "credit_note" ? -1 : 1;
+    const creditSign = invoice.documentType === "credit_note" ? -1 : 1;
+    const subtotal = invoice.subtotal as number;
+    const vat = invoice.vatAmount as number;
+
     if (invoice.invoiceType === "sale") {
-      revenue += sign * (invoice.subtotal as number);
-      vatReceived += sign * (invoice.vatAmount as number);
+      const revenueContribution = roundMoney(creditSign * subtotal);
+      const vatContribution = roundMoney(creditSign * vat);
+      revenue += revenueContribution;
+      vatReceived += vatContribution;
+      traces.revenue.push({ invoiceId: invoice.id, contribution: revenueContribution, basis: "subtotal" });
+      traces.difference.push({ invoiceId: invoice.id, contribution: revenueContribution, basis: "subtotal" });
+      traces.estimatedVatDifference.push({ invoiceId: invoice.id, contribution: vatContribution, basis: "vat" });
     } else {
-      costs += sign * (invoice.subtotal as number);
-      vatOnPurchases += sign * (invoice.vatAmount as number);
+      const costContribution = roundMoney(creditSign * subtotal);
+      const differenceContribution = roundMoney(-costContribution);
+      const purchaseVatContribution = roundMoney(creditSign * vat);
+      const vatDifferenceContribution = roundMoney(-purchaseVatContribution);
+      costs += costContribution;
+      vatOnPurchases += purchaseVatContribution;
+      traces.costs.push({ invoiceId: invoice.id, contribution: costContribution, basis: "subtotal" });
+      traces.difference.push({ invoiceId: invoice.id, contribution: differenceContribution, basis: "subtotal" });
+      traces.estimatedVatDifference.push({ invoiceId: invoice.id, contribution: vatDifferenceContribution, basis: "vat" });
     }
   }
 
@@ -160,5 +196,6 @@ export function calculateDashboardFinancialSummary(
     vatReceived,
     vatOnPurchases,
     estimatedVatDifference: roundMoney(vatReceived - vatOnPurchases),
+    traces,
   };
 }
