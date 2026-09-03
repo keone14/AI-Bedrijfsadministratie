@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 type ReviewValues = {
@@ -42,6 +42,31 @@ type Draft = {
 };
 
 type ArithmeticStatus = "incomplete" | "ok" | "mismatch" | "invalid";
+
+type CorrectionFieldProps = {
+  id: string;
+  label: string;
+  help: string;
+  children: ReactNode;
+  note?: string;
+  wide?: boolean;
+};
+
+function CorrectionField({ id, label, help, children, note, wide = false }: CorrectionFieldProps) {
+  return (
+    <div className={`invoice-correction-field${wide ? " invoice-correction-wide" : ""}`}>
+      <div className="invoice-correction-label-row">
+        <label htmlFor={id}>{label}</label>
+        <details className="invoice-field-help">
+          <summary aria-label={`Uitleg over ${label}`}>ⓘ</summary>
+          <div>{help}</div>
+        </details>
+      </div>
+      {children}
+      {note ? <small>{note}</small> : null}
+    </div>
+  );
+}
 
 function toDraft(values: ReviewValues): Draft {
   return {
@@ -198,19 +223,45 @@ export default function InvoiceReviewActions({ invoiceId, values, categories }: 
           </div>
 
           <div className="invoice-correction-grid">
-            <label><span>Documenttype</span><select value={draft.documentType} onChange={(event) => update("documentType", event.target.value as Draft["documentType"])}><option value="">Niet zeker</option><option value="invoice">Factuur</option><option value="credit_note">Creditnota</option></select></label>
-            <label><span>Aankoop of verkoop</span><select value={draft.invoiceType} onChange={(event) => update("invoiceType", event.target.value as Draft["invoiceType"])}><option value="">Niet zeker</option><option value="purchase">Aankoop</option><option value="sale">Verkoop</option></select></label>
-            <label><span>Categorie</span><select value={draft.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">Niet zeker</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.simple_label}</option>)}</select><small>Corrigeer je de categorie, dan onthouden we die keuze voor deze leverancier binnen jouw bedrijf.</small></label>
-            <label><span>Leverancier</span><input value={draft.supplierName} maxLength={500} onChange={(event) => update("supplierName", event.target.value)} /></label>
-            <label><span>Klant</span><input value={draft.customerName} maxLength={500} onChange={(event) => update("customerName", event.target.value)} /></label>
-            <label><span>Factuurnummer</span><input value={draft.invoiceNumber} maxLength={200} onChange={(event) => update("invoiceNumber", event.target.value)} /></label>
-            <label><span>Valuta</span><input value={draft.currency} maxLength={3} placeholder="EUR" onChange={(event) => update("currency", event.target.value.toUpperCase())} /></label>
-            <label><span>Factuurdatum</span><input type="date" value={draft.invoiceDate} onChange={(event) => update("invoiceDate", event.target.value)} /></label>
-            <label><span>Vervaldatum</span><input type="date" value={draft.dueDate} onChange={(event) => update("dueDate", event.target.value)} /></label>
-            <label><span>Bedrag zonder btw</span><input inputMode="decimal" value={draft.subtotal} placeholder="100,00" onChange={(event) => update("subtotal", event.target.value)} /></label>
-            <label><span>Btw</span><input inputMode="decimal" value={draft.vatAmount} placeholder="21,00" onChange={(event) => update("vatAmount", event.target.value)} /></label>
-            <label><span>Totaal</span><input inputMode="decimal" value={draft.total} placeholder="121,00" onChange={(event) => update("total", event.target.value)} /></label>
-            <label className="invoice-correction-wide"><span>Omschrijving</span><textarea value={draft.description} maxLength={2000} rows={3} onChange={(event) => update("description", event.target.value)} /></label>
+            <CorrectionField id="correction-document-type" label="Documenttype" help="Een factuur vraagt betaling voor een aankoop of verkoop. Een creditnota corrigeert een eerdere factuur. Zie je het niet duidelijk op het document? Kies ‘Niet zeker’.">
+              <select id="correction-document-type" value={draft.documentType} onChange={(event) => update("documentType", event.target.value as Draft["documentType"])}><option value="">Niet zeker</option><option value="invoice">Factuur</option><option value="credit_note">Creditnota</option></select>
+            </CorrectionField>
+            <CorrectionField id="correction-invoice-type" label="Aankoop of verkoop" help="Aankoop betekent dat jouw bedrijf de factuur ontvangt van een leverancier. Verkoop betekent dat jouw bedrijf de factuur aan een klant stuurt. Twijfel je? Kies ‘Niet zeker’.">
+              <select id="correction-invoice-type" value={draft.invoiceType} onChange={(event) => update("invoiceType", event.target.value as Draft["invoiceType"])}><option value="">Niet zeker</option><option value="purchase">Aankoop</option><option value="sale">Verkoop</option></select>
+            </CorrectionField>
+            <CorrectionField id="correction-category" label="Categorie" help="Dit is een eenvoudige groep voor je overzicht, zoals Software of Auto. Je mag het voorstel corrigeren. Twijfel je welke groep past? Kies ‘Niet zeker’." note="Corrigeer je de categorie, dan onthouden we die keuze voor deze leverancier binnen jouw bedrijf.">
+              <select id="correction-category" value={draft.categoryId} onChange={(event) => update("categoryId", event.target.value)}><option value="">Niet zeker</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.simple_label}</option>)}</select>
+            </CorrectionField>
+            <CorrectionField id="correction-supplier" label="Leverancier" help="Het bedrijf dat het product of de dienst levert en meestal de factuur opstelt. Kijk bij de afzender of bedrijfsnaam. Niet duidelijk? Laat dit veld leeg.">
+              <input id="correction-supplier" value={draft.supplierName} maxLength={500} onChange={(event) => update("supplierName", event.target.value)} />
+            </CorrectionField>
+            <CorrectionField id="correction-customer" label="Klant" help="Het bedrijf of de persoon voor wie de factuur bedoeld is. Kijk bij ‘klant’, ‘aan’ of het adresblok. Niet duidelijk? Laat dit veld leeg.">
+              <input id="correction-customer" value={draft.customerName} maxLength={500} onChange={(event) => update("customerName", event.target.value)} />
+            </CorrectionField>
+            <CorrectionField id="correction-invoice-number" label="Factuurnummer" help="De unieke referentie die de opsteller aan deze factuur gaf. Vaak staat ze bovenaan bij ‘factuurnummer’, ‘invoice number’ of ‘nr.’. Verzin geen nummer: laat leeg als je het niet ziet.">
+              <input id="correction-invoice-number" value={draft.invoiceNumber} maxLength={200} onChange={(event) => update("invoiceNumber", event.target.value)} />
+            </CorrectionField>
+            <CorrectionField id="correction-currency" label="Valuta" help="De munt waarin de bedragen staan, bijvoorbeeld EUR. Kijk bij de bedragen of betalingsgegevens. Niet zeker? Laat dit veld leeg.">
+              <input id="correction-currency" value={draft.currency} maxLength={3} placeholder="EUR" onChange={(event) => update("currency", event.target.value.toUpperCase())} />
+            </CorrectionField>
+            <CorrectionField id="correction-invoice-date" label="Factuurdatum" help="De datum waarop de factuur is opgesteld. Kijk meestal bovenaan bij ‘datum’ of ‘factuurdatum’. Niet duidelijk? Laat dit veld leeg.">
+              <input id="correction-invoice-date" type="date" value={draft.invoiceDate} onChange={(event) => update("invoiceDate", event.target.value)} />
+            </CorrectionField>
+            <CorrectionField id="correction-due-date" label="Vervaldatum" help="De datum tegen wanneer de opsteller vraagt te betalen. Kijk bij ‘vervaldatum’ of ‘due date’. Staat ze niet duidelijk op het document? Laat dit veld leeg.">
+              <input id="correction-due-date" type="date" value={draft.dueDate} onChange={(event) => update("dueDate", event.target.value)} />
+            </CorrectionField>
+            <CorrectionField id="correction-subtotal" label="Bedrag zonder btw" help="Het bedrag vóór de apart vermelde btw. Kijk naar een regel zoals ‘excl. btw’ of ‘subtotaal’. Als het document dit niet duidelijk toont, laat dit veld leeg.">
+              <input id="correction-subtotal" inputMode="decimal" value={draft.subtotal} placeholder="100,00" onChange={(event) => update("subtotal", event.target.value)} />
+            </CorrectionField>
+            <CorrectionField id="correction-vat" label="Btw" help="Het btw-bedrag dat op deze factuur apart vermeld staat. Neem alleen over wat je op het document ziet. Niet duidelijk? Laat dit veld leeg.">
+              <input id="correction-vat" inputMode="decimal" value={draft.vatAmount} placeholder="21,00" onChange={(event) => update("vatAmount", event.target.value)} />
+            </CorrectionField>
+            <CorrectionField id="correction-total" label="Totaal" help="Het volledige totaal dat op de factuur staat. Kijk naar ‘totaal’ of ‘te betalen’. Zijn meerdere totalen onduidelijk? Laat dit veld leeg en controleer het document.">
+              <input id="correction-total" inputMode="decimal" value={draft.total} placeholder="121,00" onChange={(event) => update("total", event.target.value)} />
+            </CorrectionField>
+            <CorrectionField id="correction-description" label="Omschrijving" help="Een korte beschrijving van wat gekocht of verkocht werd. Neem de hoofdactiviteit of belangrijkste factuurregel over. Niet duidelijk? Laat dit veld leeg." wide>
+              <textarea id="correction-description" value={draft.description} maxLength={2000} rows={3} onChange={(event) => update("description", event.target.value)} />
+            </CorrectionField>
           </div>
 
           {amountStatus === "mismatch" ? (
