@@ -57,7 +57,7 @@ function TraceList({
               <strong>{contribution}</strong>
               <span>{line.basis === "vat" ? "bijdrage via btw" : "bijdrage via bedrag zonder btw"}</span>
             </div>
-            <Link className="dashboard-trace-link" href={`/facturen#invoice-${line.invoiceId}`}>Bekijk factuur</Link>
+            <Link className="dashboard-trace-link" href="/facturen">Open facturenlijst</Link>
           </div>
         );
       })}
