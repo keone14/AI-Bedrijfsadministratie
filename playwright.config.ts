@@ -14,8 +14,8 @@ export default defineConfig({
     { name: "mobile", use: { viewport: { width: 390, height: 844 } } },
   ],
   webServer: {
-    command: "npm run dev",
-    url: "http://127.0.0.1:3000/__e2e/review",
+    command: "npm run dev -- --hostname 127.0.0.1",
+    url: "http://127.0.0.1:3000/e2e-review-fixture",
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
