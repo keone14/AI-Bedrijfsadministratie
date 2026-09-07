@@ -5,6 +5,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const allowedExtensions = new Set(["pdf", "jpg", "jpeg", "png"]);
 const allowedClientMimes = new Set(["application/pdf", "image/jpeg", "image/png", ""]);
+const expectedClientMimeByExtension: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+};
 
 function extensionFromName(name: string) {
   const clean = name.trim();
@@ -34,6 +40,13 @@ export async function POST(request: Request) {
 
   if (!filename || !allowedExtensions.has(extension) || !allowedClientMimes.has(mimeType)) {
     return NextResponse.json({ error: "Gebruik een PDF-, JPG- of PNG-bestand." }, { status: 400 });
+  }
+
+  if (mimeType && expectedClientMimeByExtension[extension] !== mimeType) {
+    return NextResponse.json(
+      { error: "De bestandsnaam en het bestandstype komen niet overeen. Kies het originele PDF-, JPG- of PNG-bestand opnieuw." },
+      { status: 400 },
+    );
   }
 
   if (!Number.isSafeInteger(size) || size < 1 || size > MAX_FILE_SIZE) {
