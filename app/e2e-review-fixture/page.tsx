@@ -4,8 +4,10 @@ import "../facturen/facturen.css";
 
 export const dynamic = "force-dynamic";
 
-export default function ReviewE2EFixturePage() {
+export default async function ReviewE2EFixturePage({ searchParams }: { searchParams: Promise<{ mismatch?: string }> }) {
   if (process.env.E2E_TEST_MODE !== "1") notFound();
+  const { mismatch } = await searchParams;
+  const total = mismatch === "1" ? 125 : 121;
 
   return (
     <main style={{ maxWidth: 980, margin: "0 auto", padding: "24px 16px" }}>
@@ -21,7 +23,7 @@ export default function ReviewE2EFixturePage() {
           dueDate: "2026-09-30",
           subtotal: 100,
           vatAmount: 21,
-          total: 121,
+          total,
           currency: "EUR",
           description: "Software-abonnement",
           invoiceType: "purchase",
