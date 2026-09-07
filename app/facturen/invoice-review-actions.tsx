@@ -109,11 +109,12 @@ function arithmeticStatus(draft: Draft): ArithmeticStatus {
   return Math.abs((subtotal + vat) - total) <= 0.02 ? "ok" : "mismatch";
 }
 
-function missingConfirmationFields(values: ReviewValues) {
-  const missing: string[] = [];
-  if (values.invoiceType !== "purchase" && values.invoiceType !== "sale") missing.push("aankoop of verkoop");
-  if (values.total === null) missing.push("totaalbedrag");
-  return missing;
+function confirmationIssues(values: ReviewValues) {
+  const issues: string[] = [];
+  if (values.invoiceType !== "purchase" && values.invoiceType !== "sale") issues.push("aankoop of verkoop");
+  if (values.total === null) issues.push("totaalbedrag");
+  if (arithmeticStatus(toDraft(values)) === "mismatch") issues.push("bedragen die niet optellen");
+  return issues;
 }
 
 export default function InvoiceReviewActions({ invoiceId, values, categories }: { invoiceId: string; values: ReviewValues; categories: CategoryOption[] }) {
@@ -125,8 +126,8 @@ export default function InvoiceReviewActions({ invoiceId, values, categories }: 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const amountStatus = useMemo(() => arithmeticStatus(draft), [draft]);
-  const confirmationIssues = useMemo(() => missingConfirmationFields(values), [values]);
-  const canConfirm = confirmationIssues.length === 0;
+  const issues = useMemo(() => confirmationIssues(values), [values]);
+  const canConfirm = issues.length === 0;
 
   async function confirm() {
     if (busy || editing || !canConfirm) return;
@@ -221,13 +222,13 @@ export default function InvoiceReviewActions({ invoiceId, values, categories }: 
         <button className="button button-secondary" type="button" disabled={Boolean(busy)} onClick={toggleEditing}>
           {editing ? "Annuleren" : "Aanpassen"}
         </button>
-        <span className="muted">{editing ? "Sla je wijzigingen eerst op. Pas daarna kun je de factuur bevestigen." : canConfirm ? "Bevestig alleen als de gegevens kloppen. Aanpassingen worden apart bijgehouden; de oorspronkelijke AI-uitlezing blijft bestaan." : `Controleer eerst ${confirmationIssues.join(" en ")}. Kies ‘Aanpassen’ om dit veilig te vervolledigen.`}</span>
+        <span className="muted">{editing ? "Sla je wijzigingen eerst op. Pas daarna kun je de factuur bevestigen." : canConfirm ? "Bevestig alleen als de gegevens kloppen. Aanpassingen worden apart bijgehouden; de oorspronkelijke AI-uitlezing blijft bestaan." : `Controleer eerst ${issues.join(" en ")}. Kies ‘Aanpassen’ om dit veilig te vervolledigen.`}</span>
       </div>
 
       {!editing && !canConfirm ? (
         <div className="invoice-read-warning" role="status" aria-live="polite">
           <strong>Deze factuur is nog niet klaar om te bevestigen.</strong>
-          <span>Zonder {confirmationIssues.join(" en ")} kan het dashboard je cijfers niet betrouwbaar bijwerken. Vul alleen in wat je op de factuur kunt controleren.</span>
+          <span>Controleer eerst {issues.join(" en ")}. Zo voorkomen we dat onbetrouwbare gegevens in je dashboard terechtkomen. Vul alleen in wat je op de factuur kunt controleren.</span>
         </div>
       ) : null}
 
