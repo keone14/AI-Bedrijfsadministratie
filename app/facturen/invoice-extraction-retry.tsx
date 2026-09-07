@@ -46,7 +46,7 @@ export default function InvoiceExtractionRetry({ invoiceId }: { invoiceId: strin
 
   return (
     <div>
-      <button className="button secondary" type="button" disabled={busy} onClick={() => void retry()}>
+      <button className="button button-secondary" type="button" disabled={busy} onClick={() => void retry()}>
         {busy ? "Opnieuw proberen..." : "Opnieuw uitlezen"}
       </button>
       {message ? <span role="status" aria-live="polite">{message}</span> : null}
