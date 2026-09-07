@@ -10,7 +10,7 @@ const allowedExtensions = new Set(["pdf", "jpg", "jpeg", "png"]);
 
 type UploadResult = {
   name: string;
-  status: "success" | "error";
+  status: "pending" | "success" | "error";
   message: string;
 };
 
@@ -125,14 +125,17 @@ export default function InvoiceUpload() {
     }
 
     setBusy(true);
-    setResults(files.map((file) => ({ name: file.name, status: "success", message: "Wacht op upload..." })));
+    setResults(files.map((file) => ({ name: file.name, status: "pending", message: "Wacht op upload..." })));
 
     const finished: UploadResult[] = [];
     for (let i = 0; i < files.length; i += 3) {
       const batch = files.slice(i, i + 3);
       const batchResults = await Promise.all(batch.map(uploadOne));
       finished.push(...batchResults);
-      setResults([...finished, ...files.slice(i + 3).map((file) => ({ name: file.name, status: "success" as const, message: "Wacht op upload..." }))]);
+      setResults([
+        ...finished,
+        ...files.slice(i + 3).map((file) => ({ name: file.name, status: "pending" as const, message: "Wacht op upload..." })),
+      ]);
     }
 
     setResults(finished);
@@ -147,8 +150,10 @@ export default function InvoiceUpload() {
     void handleFiles(event.dataTransfer.files);
   }
 
+  const completedCount = results.filter((result) => result.status !== "pending").length;
+
   return (
-    <section className="card upload-card" aria-labelledby="invoice-upload-title">
+    <section className="card upload-card" aria-labelledby="invoice-upload-title" aria-busy={busy}>
       <div className="upload-card-heading">
         <div>
           <div className="eyebrow">Veilige upload</div>
@@ -186,13 +191,14 @@ export default function InvoiceUpload() {
 
       {results.length ? (
         <div className="upload-results" aria-live="polite">
+          {busy ? <div className="upload-progress">{completedCount} van {results.length} verwerkt</div> : null}
           {results.map((result, index) => (
             <div className={`upload-result ${result.status}`} key={`${result.name}-${index}`}>
               <div>
                 <strong>{result.name}</strong>
                 <span>{result.message}</span>
               </div>
-              <span aria-hidden="true">{result.status === "error" ? "!" : busy && result.message === "Wacht op upload..." ? "…" : "✓"}</span>
+              <span aria-hidden="true">{result.status === "error" ? "!" : result.status === "pending" ? "…" : "✓"}</span>
             </div>
           ))}
         </div>
