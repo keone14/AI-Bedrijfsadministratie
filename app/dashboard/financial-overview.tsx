@@ -27,135 +27,63 @@ function metricValue(value: number | null, summary: DashboardFinancialSummary) {
   return formatted ?? "Nog geen betrouwbaar bedrag";
 }
 
-function TraceList({
-  lines,
-  invoices,
-  currency,
-}: {
-  lines: DashboardTraceLine[];
-  invoices: Map<string, DashboardTraceInvoice>;
-  currency: string | null;
-}) {
-  if (!lines.length || !currency) {
-    return <p className="muted trace-empty">Er is nu geen betrouwbaar gecombineerd bedrag waarvoor we bronfacturen kunnen tonen.</p>;
-  }
+function TraceList({ lines, invoices, currency }: { lines: DashboardTraceLine[]; invoices: Map<string, DashboardTraceInvoice>; currency: string | null }) {
+  if (!lines.length || !currency) return <p className="muted trace-empty">Er is nu geen betrouwbaar gecombineerd bedrag waarvoor we bronfacturen kunnen tonen.</p>;
 
-  return (
-    <div className="dashboard-trace-list">
-      {lines.map((line) => {
-        const invoice = invoices.get(line.invoiceId);
-        const contribution = formatMoney(line.contribution, currency) ?? `${line.contribution.toFixed(2)} ${currency}`;
-        return (
-          <div className="dashboard-trace-row" key={`${line.invoiceId}-${line.basis}`} data-testid="dashboard-trace-row">
-            <div>
-              <strong>{invoice?.title ?? "Factuur"}</strong>
-              <span>
-                {invoice?.documentType === "credit_note" ? "Creditnota" : "Factuur"}
-                {invoice?.invoiceNumber ? ` · ${invoice.invoiceNumber}` : ""}
-                {invoice?.invoiceDate ? ` · ${invoice.invoiceDate}` : ""}
-              </span>
-            </div>
-            <div className="dashboard-trace-value">
-              <strong>{contribution}</strong>
-              <span>{line.basis === "vat" ? "bijdrage via btw" : "bijdrage via bedrag zonder btw"}</span>
-            </div>
-            <Link className="dashboard-trace-link" href={`/facturen/${line.invoiceId}`}>Bekijk factuur</Link>
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <div className="dashboard-trace-list">{lines.map((line) => {
+    const invoice = invoices.get(line.invoiceId);
+    const contribution = formatMoney(line.contribution, currency) ?? `${line.contribution.toFixed(2)} ${currency}`;
+    return <div className="dashboard-trace-row" key={`${line.invoiceId}-${line.basis}`} data-testid="dashboard-trace-row">
+      <div><strong>{invoice?.title ?? "Factuur"}</strong><span>{invoice?.documentType === "credit_note" ? "Creditnota" : "Factuur"}{invoice?.invoiceNumber ? ` · ${invoice.invoiceNumber}` : ""}{invoice?.invoiceDate ? ` · ${invoice.invoiceDate}` : ""}</span></div>
+      <div className="dashboard-trace-value"><strong>{contribution}</strong><span>{line.basis === "vat" ? "bijdrage via btw" : "bijdrage via bedrag zonder btw"}</span></div>
+      <Link className="dashboard-trace-link" href={`/facturen/${line.invoiceId}`}>Bekijk factuur</Link>
+    </div>;
+  })}</div>;
 }
 
-export default function FinancialOverview({
-  summary,
-  traceInvoices = [],
-  vatStatus,
-}: {
-  summary: DashboardFinancialSummary;
-  traceInvoices?: DashboardTraceInvoice[];
-  vatStatus: DashboardVatStatus;
-}) {
+export default function FinancialOverview({ summary, traceInvoices = [], vatStatus }: { summary: DashboardFinancialSummary; traceInvoices?: DashboardTraceInvoice[]; vatStatus: DashboardVatStatus }) {
   const invoiceMap = new Map(traceInvoices.map((invoice) => [invoice.id, invoice]));
-  const vatStatusConfirmed = vatStatus === "yes";
-  const vatProfileValue = vatStatus === "no" ? "Volgens profiel niet btw-plichtig" : "Btw-status niet bevestigd";
+  const vatProfileValue = vatStatus === "no" ? "Volgens profiel niet btw-plichtig" : vatStatus === "unknown" ? "Btw-status niet bevestigd" : "Nog te controleren";
 
   const metrics = [
     {
-      label: "Omzet",
-      value: metricValue(summary.revenue, summary),
-      testId: "dashboard-revenue",
-      traceTestId: "dashboard-revenue-trace",
-      trace: summary.traces.revenue,
+      label: "Omzet", value: metricValue(summary.revenue, summary), testId: "dashboard-revenue", traceTestId: "dashboard-revenue-trace", trace: summary.traces.revenue,
       what: "De som van het bedrag zonder btw op betrouwbare verkoopfacturen in deze maand. Creditnota’s verlagen dit bedrag.",
-      source: summary.reliableInvoiceCount
-        ? `Gebaseerd op betrouwbare facturen in ${summary.period.label}. Open de bronfacturen hieronder om exact te zien welke regels dit bedrag vormen.`
-        : `Er zijn nog geen betrouwbare facturen die voor ${summary.period.label} in dit bedrag mogen meetellen.`,
+      source: summary.reliableInvoiceCount ? `Gebaseerd op betrouwbare facturen in ${summary.period.label}. Open de bronfacturen hieronder om exact te zien welke regels dit bedrag vormen.` : `Er zijn nog geen betrouwbare facturen die voor ${summary.period.label} in dit bedrag mogen meetellen.`,
       unknown: "Facturen die nog gecontroleerd moeten worden tellen niet mee. Zo vermijden we dat een onzeker bedrag stilletjes in je omzet belandt.",
     },
     {
-      label: "Zakelijke kosten",
-      value: metricValue(summary.costs, summary),
-      testId: "dashboard-costs",
-      traceTestId: "dashboard-costs-trace",
-      trace: summary.traces.costs,
+      label: "Zakelijke kosten", value: metricValue(summary.costs, summary), testId: "dashboard-costs", traceTestId: "dashboard-costs-trace", trace: summary.traces.costs,
       what: "De som van het bedrag zonder btw op betrouwbare aankoopfacturen in deze maand. Dit is een administratief overzicht, niet automatisch je fiscaal aftrekbare kost.",
       source: `Alleen betrouwbare aankoopfacturen uit ${summary.period.label} vormen dit bedrag.`,
       unknown: "Een factuur met twijfel, ontbrekende bedragen of een rekenfout wordt uitgesloten totdat ze betrouwbaar is.",
     },
     {
-      label: "Verschil",
-      value: metricValue(summary.difference, summary),
-      testId: "dashboard-difference",
-      traceTestId: "dashboard-difference-trace",
-      trace: summary.traces.difference,
+      label: "Verschil", value: metricValue(summary.difference, summary), testId: "dashboard-difference", traceTestId: "dashboard-difference-trace", trace: summary.traces.difference,
       what: "Omzet zonder btw min zakelijke kosten zonder btw uit dezelfde betrouwbare facturen.",
       source: "Elke verkoopfactuur draagt positief bij en elke aankoopfactuur negatief. Creditnota’s draaien de bijdrage om. De regels hieronder komen rechtstreeks uit dezelfde vaste berekening.",
       unknown: "Dit is niet automatisch je nettowinst of belastbaar inkomen. Daarvoor kunnen nog andere gegevens en regels nodig zijn.",
     },
     {
-      label: "Geschatte btw",
-      value: vatStatusConfirmed ? metricValue(summary.estimatedVatDifference, summary) : vatProfileValue,
-      testId: "dashboard-vat",
-      traceTestId: "dashboard-vat-trace",
-      trace: vatStatusConfirmed ? summary.traces.estimatedVatDifference : [],
-      what: vatStatusConfirmed
-        ? "Een voorlopige tussensom: btw op betrouwbare verkoopfacturen min de geregistreerde btw op betrouwbare aankoopfacturen."
-        : "We tonen pas een btw-schatting wanneer je bedrijfsprofiel bevestigt dat je btw-plichtig bent.",
-      source: vatStatusConfirmed
-        ? "De regels hieronder tonen per factuur welke geregistreerde btw de tussensom verhoogt of verlaagt."
-        : vatStatus === "no"
-          ? "Je bedrijfsprofiel staat momenteel als niet btw-plichtig. Daarom maken we geen btw-schatting op basis van facturen."
-          : "Je btw-status is nog niet bevestigd. Controleer die eerst in je bedrijfsgegevens voordat we factuur-btw combineren tot een schatting.",
-      unknown: vatStatusConfirmed
-        ? "Dit is geen definitieve btw-aangifte en beslist niet automatisch welke aankoop-btw fiscaal aftrekbaar is. Bij onvolledige data blijft dit dus alleen een voorzichtige schatting."
-        : "We vullen hier bewust geen bedrag in op basis van een aanname. Zo vermijden we dat een fiscale schatting betrouwbaar lijkt terwijl je btw-profiel nog onzeker is.",
+      label: "Geschatte btw", value: summary.status === "mixed_currency" ? "Meerdere valuta" : vatProfileValue, testId: "dashboard-vat", traceTestId: "dashboard-vat-trace", trace: [] as DashboardTraceLine[],
+      what: vatStatus === "yes" ? "We hebben je btw-status bevestigd, maar tonen nog geen netto btw-schatting zolang we niet betrouwbaar weten hoeveel btw op elke aankoop aftrekbaar is." : "We tonen pas een btw-schatting wanneer je fiscale profiel en de nodige aftrekgegevens voldoende betrouwbaar zijn.",
+      source: vatStatus === "yes" ? "De geregistreerde btw op je facturen blijft bewaard, maar wordt hier niet automatisch als volledig aftrekbaar behandeld. Sommige kosten hebben geen of slechts gedeeltelijk recht op btw-aftrek." : vatStatus === "no" ? "Je bedrijfsprofiel staat momenteel als niet btw-plichtig. Daarom maken we geen btw-schatting op basis van facturen." : "Je btw-status is nog niet bevestigd. Controleer die eerst in je bedrijfsgegevens.",
+      unknown: vatStatus === "yes" ? "Zodra de app per aankoop betrouwbaar kan bepalen of en hoeveel btw aftrekbaar is, kan hier een voorzichtige netto schatting komen. Tot dan vermijden we bewust een bedrag dat te laag kan lijken." : "We vullen hier bewust geen bedrag in op basis van een aanname.",
     },
   ];
 
-  return (
-    <section className="grid grid-4 dashboard-metrics" aria-label={`Financieel overzicht voor ${summary.period.label}`}>
-      {metrics.map((metric) => (
-        <article className="card metric-card" key={metric.label}>
-          <div className="metric-label">{metric.label}</div>
-          <div className="kpi kpi-empty" data-testid={metric.testId}>{metric.value}</div>
-          <details className="dashboard-trace" data-testid={metric.traceTestId}>
-            <summary>Waar komt dit vandaan?</summary>
-            <div className="dashboard-trace-body">
-              <p className="muted">{metric.label === "Geschatte btw" && !vatStatusConfirmed ? "Er is nog geen btw-bedrag berekend zolang je btw-status niet bevestigd is." : "Dit zijn de facturen en exacte bijdragen die de vaste berekening voor dit bedrag gebruikt."}</p>
-              <TraceList lines={metric.trace} invoices={invoiceMap} currency={summary.currency} />
-            </div>
-          </details>
-          <details className="help-details dashboard-help">
-            <summary>Leg dit simpel uit</summary>
-            <div className="help-details-body">
-              <div><strong>Wat is dit?</strong><p>{metric.what}</p></div>
-              <div><strong>Hoe wordt dit berekend?</strong><p>{metric.source}</p></div>
-              <div><strong>Wat als we het niet zeker weten?</strong><p>{metric.unknown}</p></div>
-            </div>
-          </details>
-        </article>
-      ))}
-    </section>
-  );
+  return <section className="grid grid-4 dashboard-metrics" aria-label={`Financieel overzicht voor ${summary.period.label}`}>
+    {metrics.map((metric) => <article className="card metric-card" key={metric.label}>
+      <div className="metric-label">{metric.label}</div>
+      <div className="kpi kpi-empty" data-testid={metric.testId}>{metric.value}</div>
+      <details className="dashboard-trace" data-testid={metric.traceTestId}>
+        <summary>Waar komt dit vandaan?</summary>
+        <div className="dashboard-trace-body">
+          <p className="muted">{metric.label === "Geschatte btw" ? "Er is nog geen netto btw-bedrag berekend zolang de aftrekbaarheid van aankoop-btw niet betrouwbaar vaststaat." : "Dit zijn de facturen en exacte bijdragen die de vaste berekening voor dit bedrag gebruikt."}</p>
+          <TraceList lines={metric.trace} invoices={invoiceMap} currency={summary.currency} />
+        </div>
+      </details>
+      <details className="help-details dashboard-help"><summary>Leg dit simpel uit</summary><div className="help-details-body"><div><strong>Wat is dit?</strong><p>{metric.what}</p></div><div><strong>Hoe wordt dit berekend?</strong><p>{metric.source}</p></div><div><strong>Wat als we het niet zeker weten?</strong><p>{metric.unknown}</p></div></div></details>
+    </article>)}
+  </section>;
 }
