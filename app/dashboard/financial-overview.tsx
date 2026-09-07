@@ -9,6 +9,8 @@ export type DashboardTraceInvoice = {
   documentType: "invoice" | "credit_note" | null;
 };
 
+export type DashboardVatStatus = "yes" | "no" | "unknown";
+
 function formatMoney(value: number | null, currency: string | null) {
   if (value === null || !currency) return null;
   try {
@@ -68,11 +70,16 @@ function TraceList({
 export default function FinancialOverview({
   summary,
   traceInvoices = [],
+  vatStatus,
 }: {
   summary: DashboardFinancialSummary;
   traceInvoices?: DashboardTraceInvoice[];
+  vatStatus: DashboardVatStatus;
 }) {
   const invoiceMap = new Map(traceInvoices.map((invoice) => [invoice.id, invoice]));
+  const vatStatusConfirmed = vatStatus === "yes";
+  const vatProfileValue = vatStatus === "no" ? "Volgens profiel niet btw-plichtig" : "Btw-status niet bevestigd";
+
   const metrics = [
     {
       label: "Omzet",
@@ -108,13 +115,21 @@ export default function FinancialOverview({
     },
     {
       label: "Geschatte btw",
-      value: metricValue(summary.estimatedVatDifference, summary),
+      value: vatStatusConfirmed ? metricValue(summary.estimatedVatDifference, summary) : vatProfileValue,
       testId: "dashboard-vat",
       traceTestId: "dashboard-vat-trace",
-      trace: summary.traces.estimatedVatDifference,
-      what: "Een voorlopige tussensom: btw op betrouwbare verkoopfacturen min de geregistreerde btw op betrouwbare aankoopfacturen.",
-      source: "De regels hieronder tonen per factuur welke geregistreerde btw de tussensom verhoogt of verlaagt.",
-      unknown: "Dit is geen definitieve btw-aangifte en beslist niet automatisch welke aankoop-btw fiscaal aftrekbaar is. Bij onvolledige data blijft dit dus alleen een voorzichtige schatting.",
+      trace: vatStatusConfirmed ? summary.traces.estimatedVatDifference : [],
+      what: vatStatusConfirmed
+        ? "Een voorlopige tussensom: btw op betrouwbare verkoopfacturen min de geregistreerde btw op betrouwbare aankoopfacturen."
+        : "We tonen pas een btw-schatting wanneer je bedrijfsprofiel bevestigt dat je btw-plichtig bent.",
+      source: vatStatusConfirmed
+        ? "De regels hieronder tonen per factuur welke geregistreerde btw de tussensom verhoogt of verlaagt."
+        : vatStatus === "no"
+          ? "Je bedrijfsprofiel staat momenteel als niet btw-plichtig. Daarom maken we geen btw-schatting op basis van facturen."
+          : "Je btw-status is nog niet bevestigd. Controleer die eerst in je bedrijfsgegevens voordat we factuur-btw combineren tot een schatting.",
+      unknown: vatStatusConfirmed
+        ? "Dit is geen definitieve btw-aangifte en beslist niet automatisch welke aankoop-btw fiscaal aftrekbaar is. Bij onvolledige data blijft dit dus alleen een voorzichtige schatting."
+        : "We vullen hier bewust geen bedrag in op basis van een aanname. Zo vermijden we dat een fiscale schatting betrouwbaar lijkt terwijl je btw-profiel nog onzeker is.",
     },
   ];
 
@@ -127,7 +142,7 @@ export default function FinancialOverview({
           <details className="dashboard-trace" data-testid={metric.traceTestId}>
             <summary>Waar komt dit vandaan?</summary>
             <div className="dashboard-trace-body">
-              <p className="muted">Dit zijn de facturen en exacte bijdragen die de vaste berekening voor dit bedrag gebruikt.</p>
+              <p className="muted">{metric.label === "Geschatte btw" && !vatStatusConfirmed ? "Er is nog geen btw-bedrag berekend zolang je btw-status niet bevestigd is." : "Dit zijn de facturen en exacte bijdragen die de vaste berekening voor dit bedrag gebruikt."}</p>
               <TraceList lines={metric.trace} invoices={invoiceMap} currency={summary.currency} />
             </div>
           </details>
