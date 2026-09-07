@@ -3,6 +3,12 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const documentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const expectedMimeByExtension: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  png: "image/png",
+};
 
 type FinalizeBody = {
   documentId?: string;
@@ -34,6 +40,19 @@ function detectMime(buffer: Buffer) {
     return "image/png";
   }
   return null;
+}
+
+function validatedStorageExtension(storagePath: string, companyId: string, documentId: string) {
+  if (!documentIdPattern.test(documentId)) {
+    return null;
+  }
+
+  const match = storagePath.match(/^company\/([^/]+)\/documents\/([^/]+)\/original\.(pdf|jpg|png)$/i);
+  if (!match || match[1] !== companyId || match[2] !== documentId) {
+    return null;
+  }
+
+  return match[3].toLowerCase();
 }
 
 async function discard(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, storagePath: string) {
@@ -75,9 +94,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
   }
 
-  const expectedPrefix = `company/${membership.company_id}/documents/${documentId}/`;
-  if (!storagePath.startsWith(expectedPrefix)) {
-    return NextResponse.json({ error: "Deze upload hoort niet bij je bedrijf." }, { status: 403 });
+  const storageExtension = validatedStorageExtension(storagePath, membership.company_id, documentId);
+  if (!storageExtension) {
+    return NextResponse.json({ error: "Deze upload hoort niet bij je bedrijf of heeft een ongeldige opslaglocatie." }, { status: 403 });
   }
 
   const { data: fileBlob, error: downloadError } = await supabase.storage
@@ -98,6 +117,14 @@ export async function POST(request: Request) {
   if (!detectedMime) {
     await discard(supabase, storagePath);
     return NextResponse.json({ error: "Het bestand is geen geldige PDF-, JPG- of PNG-factuur." }, { status: 400 });
+  }
+
+  if (expectedMimeByExtension[storageExtension] !== detectedMime) {
+    await discard(supabase, storagePath);
+    return NextResponse.json(
+      { error: "De bestandsnaam en de werkelijke inhoud komen niet overeen. Exporteer of hernoem de factuur als PDF, JPG of PNG en probeer opnieuw." },
+      { status: 400 },
+    );
   }
 
   const sha256 = createHash("sha256").update(buffer).digest("hex");
