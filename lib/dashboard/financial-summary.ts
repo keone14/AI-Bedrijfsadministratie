@@ -105,7 +105,10 @@ export function calculateDashboardFinancialSummary(
   const undatedInvoiceCount = invoices.filter((invoice) => invoice.invoiceDate === null).length;
   const reliable = datedInPeriod.filter(isReliableForTotals);
   const excluded = datedInPeriod.filter((invoice) => !isReliableForTotals(invoice));
-  const needsReviewCount = datedInPeriod.filter((invoice) => !reliableStatuses.has(invoice.reviewStatus)).length;
+  // A factuur kan door de gebruiker bevestigd zijn en toch ongeschikt blijven voor
+  // betrouwbare totalen, bijvoorbeeld door ontbrekende valuta of bedragen. Zulke
+  // facturen moeten zichtbaar een controlepunt blijven in plaats van stil te verdwijnen.
+  const needsReviewCount = excluded.length;
   const currencies = Array.from(new Set(reliable.map((invoice) => invoice.currency as string))).sort();
 
   const base = {
