@@ -18,6 +18,15 @@ test("dashboard excludes uncertain invoice and updates after confirmation", asyn
   expect(hasHorizontalOverflow).toBe(false);
 });
 
+test("confirmed invoice that is still unreliable remains a visible review item", async ({ page }) => {
+  await page.goto("/e2e-dashboard-fixture?confirmed=1&unreliable=1");
+  await expect(page.getByTestId("reliable-count")).toHaveText("1");
+  await expect(page.getByTestId("review-count")).toHaveText("1");
+  await expect(page.getByTestId("summary-status")).toHaveText("incomplete");
+  await expect(page.getByTestId("dashboard-revenue")).toContainText("1.000,00");
+  await expect(page.getByTestId("dashboard-costs")).toContainText("0,00");
+});
+
 test("every reliable non-VAT dashboard amount shows exact source invoices and contributions", async ({ page }) => {
   await page.goto("/e2e-dashboard-fixture?confirmed=1");
   const revenueTrace = page.getByTestId("dashboard-revenue-trace");
