@@ -109,6 +109,13 @@ function arithmeticStatus(draft: Draft): ArithmeticStatus {
   return Math.abs((subtotal + vat) - total) <= 0.02 ? "ok" : "mismatch";
 }
 
+function missingConfirmationFields(values: ReviewValues) {
+  const missing: string[] = [];
+  if (values.invoiceType !== "purchase" && values.invoiceType !== "sale") missing.push("aankoop of verkoop");
+  if (values.total === null) missing.push("totaalbedrag");
+  return missing;
+}
+
 export default function InvoiceReviewActions({ invoiceId, values, categories }: { invoiceId: string; values: ReviewValues; categories: CategoryOption[] }) {
   const router = useRouter();
   const initialDraft = useMemo(() => toDraft(values), [values]);
@@ -118,9 +125,11 @@ export default function InvoiceReviewActions({ invoiceId, values, categories }: 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const amountStatus = useMemo(() => arithmeticStatus(draft), [draft]);
+  const confirmationIssues = useMemo(() => missingConfirmationFields(values), [values]);
+  const canConfirm = confirmationIssues.length === 0;
 
   async function confirm() {
-    if (busy || editing) return;
+    if (busy || editing || !canConfirm) return;
     setBusy("confirm");
     setError(null);
     setNotice(null);
@@ -206,14 +215,21 @@ export default function InvoiceReviewActions({ invoiceId, values, categories }: 
   return (
     <div className="invoice-review-block">
       <div className="invoice-review-actions">
-        <button className="button" type="button" disabled={Boolean(busy) || editing} onClick={confirm}>
+        <button className="button" type="button" disabled={Boolean(busy) || editing || !canConfirm} onClick={confirm}>
           {busy === "confirm" ? "Bevestigen..." : "Ja, dit klopt"}
         </button>
         <button className="button button-secondary" type="button" disabled={Boolean(busy)} onClick={toggleEditing}>
           {editing ? "Annuleren" : "Aanpassen"}
         </button>
-        <span className="muted">{editing ? "Sla je wijzigingen eerst op. Pas daarna kun je de factuur bevestigen." : "Bevestig alleen als de gegevens kloppen. Aanpassingen worden apart bijgehouden; de oorspronkelijke AI-uitlezing blijft bestaan."}</span>
+        <span className="muted">{editing ? "Sla je wijzigingen eerst op. Pas daarna kun je de factuur bevestigen." : canConfirm ? "Bevestig alleen als de gegevens kloppen. Aanpassingen worden apart bijgehouden; de oorspronkelijke AI-uitlezing blijft bestaan." : `Controleer eerst ${confirmationIssues.join(" en ")}. Kies ‘Aanpassen’ om dit veilig te vervolledigen.`}</span>
       </div>
+
+      {!editing && !canConfirm ? (
+        <div className="invoice-read-warning" role="status" aria-live="polite">
+          <strong>Deze factuur is nog niet klaar om te bevestigen.</strong>
+          <span>Zonder {confirmationIssues.join(" en ")} kan het dashboard je cijfers niet betrouwbaar bijwerken. Vul alleen in wat je op de factuur kunt controleren.</span>
+        </div>
+      ) : null}
 
       {editing ? (
         <div className="invoice-correction-panel">
