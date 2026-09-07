@@ -59,6 +59,26 @@ test("invoice review correction and confirmation works without horizontal overfl
   await expect.poll(() => confirmCalled).toBe(true);
 });
 
+test("invoice with inconsistent stored totals cannot be confirmed", async ({ page }) => {
+  let confirmCalled = false;
+
+  await page.route("**/api/invoices/e2e-invoice/confirm", async (route) => {
+    confirmCalled = true;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+
+  await page.goto("/e2e-review-fixture?mismatch=1");
+
+  await expect(page.getByRole("button", { name: "Ja, dit klopt" })).toBeDisabled();
+  await expect(page.getByText("Deze factuur is nog niet klaar om te bevestigen.")).toBeVisible();
+  await expect(page.getByText(/bedragen die niet optellen/i)).toBeVisible();
+  expect(confirmCalled).toBe(false);
+});
+
 test("cancel discards unsaved invoice edits", async ({ page }) => {
   await page.goto("/e2e-review-fixture");
   await page.getByRole("button", { name: "Aanpassen" }).click();
