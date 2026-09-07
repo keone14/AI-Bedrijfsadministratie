@@ -9,13 +9,25 @@ export async function POST(_request: Request, context: RouteContext) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
 
+  const { data: membership, error: membershipError } = await supabase
+    .from("company_members")
+    .select("company_id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+
+  if (membershipError) return NextResponse.json({ error: "Je bedrijfsrechten konden niet betrouwbaar gecontroleerd worden." }, { status: 400 });
+  if (!membership?.company_id) return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
+
   // Confirmation means this record may feed the financial dashboard. Keep the
-  // confirmation gate aligned with the dashboard reliability rules so a user
-  // never sees "confirmed" while the same invoice is silently excluded.
+  // confirmation gate aligned with the dashboard reliability rules and scope
+  // every lookup explicitly to the active company, in addition to database RLS.
   const { data: invoice, error: invoiceError } = await supabase
     .from("invoices")
-    .select("invoice_type,invoice_date,currency,subtotal,vat_amount,total,document_id")
+    .select("invoice_type,invoice_date,currency,subtotal,vat_amount,total,document_id,company_id")
     .eq("id", invoiceId)
+    .eq("company_id", membership.company_id)
     .maybeSingle();
 
   if (invoiceError) return NextResponse.json({ error: "De factuur kon niet betrouwbaar gecontroleerd worden." }, { status: 400 });
@@ -25,6 +37,7 @@ export async function POST(_request: Request, context: RouteContext) {
     .from("documents")
     .select("document_type")
     .eq("id", invoice.document_id)
+    .eq("company_id", membership.company_id)
     .maybeSingle();
   if (documentError || !document) return NextResponse.json({ error: "Het originele document kon niet betrouwbaar gecontroleerd worden." }, { status: 409 });
 
