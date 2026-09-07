@@ -87,3 +87,29 @@ test("cancel discards unsaved invoice edits", async ({ page }) => {
   await page.getByRole("button", { name: "Aanpassen" }).click();
   await expect(page.locator("#correction-supplier")).toHaveValue("Voorbeeld Leverancier BV");
 });
+
+for (const width of [360, 390, 430, 768, 900, 1024, 1440]) {
+  test(`invoice review stays usable without horizontal overflow at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width <= 430 ? 800 : 900 });
+    await page.goto("/e2e-review-fixture");
+
+    await expect(page.getByRole("heading", { name: "Factuur nakijken" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ja, dit klopt" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Aanpassen" })).toBeVisible();
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(hasHorizontalOverflow).toBe(false);
+
+    await page.getByRole("button", { name: "Aanpassen" }).click();
+    await expect(page.locator("#correction-invoice-type")).toBeVisible();
+    await expect(page.locator("#correction-total")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Aanpassingen opslaan" })).toBeVisible();
+
+    const editingHasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(editingHasHorizontalOverflow).toBe(false);
+  });
+}
