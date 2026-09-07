@@ -92,3 +92,18 @@ test("confirmed credit note reduces totals and appears as a negative source cont
   await expect(revenueTrace).toContainText("€ -100,00");
   await expect(revenueTrace.getByRole("link", { name: "Bekijk factuur" }).nth(1)).toHaveAttribute("href", "/facturen/sale-credit-1");
 });
+
+test("dashboard does not show a VAT estimate before VAT status is confirmed", async ({ page }) => {
+  await page.goto("/e2e-dashboard-fixture?confirmed=1&vat=unknown");
+  await expect(page.getByTestId("dashboard-vat")).toHaveText("Btw-status niet bevestigd");
+
+  const vatTrace = page.getByTestId("dashboard-vat-trace");
+  await vatTrace.locator("summary").click();
+  await expect(vatTrace).toContainText("nog geen btw-bedrag berekend");
+  await expect(vatTrace.getByTestId("dashboard-trace-row")).toHaveCount(0);
+
+  const hasHorizontalOverflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(hasHorizontalOverflow).toBe(false);
+});
