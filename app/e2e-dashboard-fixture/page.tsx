@@ -18,10 +18,10 @@ const period: DashboardPeriod = {
 export default async function DashboardE2EFixturePage({
   searchParams,
 }: {
-  searchParams: Promise<{ confirmed?: string; mixed?: string; credit?: string; vat?: string }>;
+  searchParams: Promise<{ confirmed?: string; mixed?: string; credit?: string; vat?: string; unreliable?: string }>;
 }) {
   if (process.env.E2E_TEST_MODE !== "1") notFound();
-  const { confirmed, mixed, credit, vat } = await searchParams;
+  const { confirmed, mixed, credit, vat, unreliable } = await searchParams;
   const vatStatus: DashboardVatStatus = vat === "unknown" ? "unknown" : vat === "no" ? "no" : "yes";
 
   const invoices: DashboardInvoice[] = [
@@ -40,7 +40,7 @@ export default async function DashboardE2EFixturePage({
       id: "purchase-1",
       invoiceType: "purchase",
       invoiceDate: "2026-09-02",
-      currency: mixed === "1" ? "USD" : "EUR",
+      currency: mixed === "1" ? "USD" : unreliable === "1" ? null : "EUR",
       subtotal: 200,
       vatAmount: 42,
       total: 242,
@@ -75,6 +75,7 @@ export default async function DashboardE2EFixturePage({
     <main style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 16px" }}>
       <h1>Dashboard test</h1>
       <p data-testid="reliable-count">{summary.reliableInvoiceCount}</p>
+      <p data-testid="review-count">{summary.needsReviewCount}</p>
       <p data-testid="summary-status">{summary.status}</p>
       <FinancialOverview summary={summary} traceInvoices={traceInvoices} vatStatus={vatStatus} />
     </main>
