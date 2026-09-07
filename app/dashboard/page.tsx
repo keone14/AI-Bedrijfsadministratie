@@ -6,7 +6,7 @@ import {
   type DashboardFinancialSummary,
   type DashboardInvoice,
 } from "@/lib/dashboard/financial-summary";
-import FinancialOverview, { type DashboardTraceInvoice } from "./financial-overview";
+import FinancialOverview, { type DashboardTraceInvoice, type DashboardVatStatus } from "./financial-overview";
 import "./dashboard.css";
 import LogoutButton from "./logout-button";
 
@@ -48,6 +48,7 @@ type DashboardData = {
   recentInvoices: InvoiceRow[];
   companyState: "ready" | "no_company" | "multiple_companies" | "error";
   totalInvoiceCount: number;
+  vatStatus: DashboardVatStatus;
 };
 
 function emptySummary(status: "no_data" | "error"): DashboardFinancialSummary {
@@ -73,13 +74,18 @@ function emptySummary(status: "no_data" | "error"): DashboardFinancialSummary {
 }
 
 function emptyData(summaryStatus: "no_data" | "error", companyState: DashboardData["companyState"]): DashboardData {
-  return { summary: emptySummary(summaryStatus), traceInvoices: [], recentInvoices: [], companyState, totalInvoiceCount: 0 };
+  return { summary: emptySummary(summaryStatus), traceInvoices: [], recentInvoices: [], companyState, totalInvoiceCount: 0, vatStatus: "unknown" };
 }
 
 function toNumber(value: number | null) {
   if (value === null) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeVatStatus(value: string | null): DashboardVatStatus {
+  if (value === "yes" || value === "no") return value;
+  return "unknown";
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
@@ -100,6 +106,14 @@ async function loadDashboardData(): Promise<DashboardData> {
     if (memberships.length > 1) return emptyData("error", "multiple_companies");
 
     const companyId = memberships[0].company_id as string;
+    const { data: company, error: companyError } = await supabase
+      .from("companies")
+      .select("vat_status")
+      .eq("id", companyId)
+      .single();
+    if (companyError) return emptyData("error", "error");
+    const vatStatus = normalizeVatStatus(company?.vat_status ?? null);
+
     const invoices: InvoiceRow[] = [];
     let offset = 0;
 
@@ -166,6 +180,7 @@ async function loadDashboardData(): Promise<DashboardData> {
       recentInvoices: invoices.slice(0, 5),
       companyState: "ready",
       totalInvoiceCount: invoices.length,
+      vatStatus,
     };
   } catch {
     return emptyData("error", "error");
@@ -232,7 +247,7 @@ export default async function DashboardPage() {
           {summary.status === "mixed_currency" ? <p className="dashboard-warning">Meerdere valuta gevonden: {summary.currencies.join(", ")}. We maken daar bewust geen fout gecombineerd totaal van.</p> : null}
         </section>
 
-        <FinancialOverview summary={summary} traceInvoices={data.traceInvoices} />
+        <FinancialOverview summary={summary} traceInvoices={data.traceInvoices} vatStatus={data.vatStatus} />
 
         <section className="dashboard-lower-grid">
           <article className="card action-card">
