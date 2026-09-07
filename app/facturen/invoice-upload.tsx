@@ -49,70 +49,78 @@ export default function InvoiceUpload() {
     const localError = validateFile(file);
     if (localError) return { name: file.name, status: "error", message: localError };
 
-    const initResponse = await fetch("/api/invoices/upload/init", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ filename: file.name, size: file.size, mimeType: file.type }),
-    });
-    const init = (await initResponse.json()) as InitResponse;
-    if (!initResponse.ok) {
-      return { name: file.name, status: "error", message: init.error ?? "Upload kon niet gestart worden." };
-    }
-
-    const supabase = createSupabaseBrowserClient();
-    const { error: storageError } = await supabase.storage
-      .from(init.bucket)
-      .upload(init.storagePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-        contentType: file.type || undefined,
+    try {
+      const initResponse = await fetch("/api/invoices/upload/init", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ filename: file.name, size: file.size, mimeType: file.type }),
       });
+      const init = (await initResponse.json()) as InitResponse;
+      if (!initResponse.ok) {
+        return { name: file.name, status: "error", message: init.error ?? "Upload kon niet gestart worden." };
+      }
 
-    if (storageError) {
-      return { name: file.name, status: "error", message: "Het bestand kon niet privé worden opgeslagen." };
-    }
+      const supabase = createSupabaseBrowserClient();
+      const { error: storageError } = await supabase.storage
+        .from(init.bucket)
+        .upload(init.storagePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type || undefined,
+        });
 
-    const finalizeResponse = await fetch("/api/invoices/upload/finalize", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        documentId: init.documentId,
-        storagePath: init.storagePath,
-        originalFilename: file.name,
-      }),
-    });
-    const finalized = await finalizeResponse.json() as FinalizeResponse;
+      if (storageError) {
+        return { name: file.name, status: "error", message: "Het bestand kon niet privé worden opgeslagen." };
+      }
 
-    if (!finalizeResponse.ok || !finalized.invoiceId) {
-      return { name: file.name, status: "error", message: finalized.error ?? "De factuur kon niet veilig worden geregistreerd." };
-    }
+      const finalizeResponse = await fetch("/api/invoices/upload/finalize", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          documentId: init.documentId,
+          storagePath: init.storagePath,
+          originalFilename: file.name,
+        }),
+      });
+      const finalized = await finalizeResponse.json() as FinalizeResponse;
 
-    const extractionResponse = await fetch(`/api/invoices/${encodeURIComponent(finalized.invoiceId)}/extract`, {
-      method: "POST",
-    });
-    const extraction = await extractionResponse.json() as { code?: string; error?: string; message?: string };
+      if (!finalizeResponse.ok || !finalized.invoiceId) {
+        return { name: file.name, status: "error", message: finalized.error ?? "De factuur kon niet veilig worden geregistreerd." };
+      }
 
-    if (extractionResponse.status === 202) {
+      const extractionResponse = await fetch(`/api/invoices/${encodeURIComponent(finalized.invoiceId)}/extract`, {
+        method: "POST",
+      });
+      const extraction = await extractionResponse.json() as { code?: string; error?: string; message?: string };
+
+      if (extractionResponse.status === 202) {
+        return {
+          name: file.name,
+          status: "success",
+          message: "Veilig opgeslagen. Wordt nu uitgelezen; twijfel blijft zichtbaar.",
+        };
+      }
+
+      if (extraction.code === "AI_NOT_CONFIGURED") {
+        return {
+          name: file.name,
+          status: "success",
+          message: "Veilig opgeslagen. AI-uitlezing is nog niet geactiveerd, dus het document is niet extern verwerkt.",
+        };
+      }
+
       return {
         name: file.name,
         status: "success",
-        message: "Veilig opgeslagen. Wordt nu uitgelezen; twijfel blijft zichtbaar.",
+        message: "Veilig opgeslagen. Uitlezing kon nu niet worden gestart; je document blijft behouden.",
       };
-    }
-
-    if (extraction.code === "AI_NOT_CONFIGURED") {
+    } catch {
       return {
         name: file.name,
-        status: "success",
-        message: "Veilig opgeslagen. AI-uitlezing is nog niet geactiveerd, dus het document is niet extern verwerkt.",
+        status: "error",
+        message: "De verbinding werd onderbroken. Dit bestand is niet als afgerond gemarkeerd. Probeer het opnieuw.",
       };
     }
-
-    return {
-      name: file.name,
-      status: "success",
-      message: "Veilig opgeslagen. Uitlezing kon nu niet worden gestart; je document blijft behouden.",
-    };
   }
 
   async function handleFiles(fileList: FileList | File[]) {
@@ -128,20 +136,23 @@ export default function InvoiceUpload() {
     setResults(files.map((file) => ({ name: file.name, status: "pending", message: "Wacht op upload..." })));
 
     const finished: UploadResult[] = [];
-    for (let i = 0; i < files.length; i += 3) {
-      const batch = files.slice(i, i + 3);
-      const batchResults = await Promise.all(batch.map(uploadOne));
-      finished.push(...batchResults);
-      setResults([
-        ...finished,
-        ...files.slice(i + 3).map((file) => ({ name: file.name, status: "pending" as const, message: "Wacht op upload..." })),
-      ]);
-    }
+    try {
+      for (let i = 0; i < files.length; i += 3) {
+        const batch = files.slice(i, i + 3);
+        const batchResults = await Promise.all(batch.map(uploadOne));
+        finished.push(...batchResults);
+        setResults([
+          ...finished,
+          ...files.slice(i + 3).map((file) => ({ name: file.name, status: "pending" as const, message: "Wacht op upload..." })),
+        ]);
+      }
 
-    setResults(finished);
-    setBusy(false);
-    router.refresh();
-    if (inputRef.current) inputRef.current.value = "";
+      setResults(finished);
+      router.refresh();
+    } finally {
+      setBusy(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
   }
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
