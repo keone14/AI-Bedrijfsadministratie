@@ -11,10 +11,13 @@
 .upload-dropzone span { color: var(--muted); font-size: .9rem; }
 .upload-trust-note { display: grid; gap: 4px; padding: 13px 14px; border-radius: 11px; background: #f8fafb; color: #475467; font-size: .9rem; line-height: 1.45; }
 .upload-results { display: grid; gap: 8px; }
+.upload-progress { color: #475467; font-size: .84rem; font-weight: 700; }
 .upload-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px; background: #fff; }
 .upload-result > div { min-width: 0; display: grid; gap: 3px; }
 .upload-result strong { overflow-wrap: anywhere; }
 .upload-result span { color: var(--muted); font-size: .84rem; }
+.upload-result.pending { background: #fbfcfd; }
+.upload-result.pending > span { color: #667085; font-weight: 800; }
 .upload-result.error { border-color: #e9c7c7; background: #fffafa; }
 .upload-result.error > span { color: #b42318; font-weight: 800; }
 .upload-result.success > span { color: #027a48; font-weight: 800; }
