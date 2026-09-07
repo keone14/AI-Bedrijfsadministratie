@@ -13,11 +13,12 @@ export async function POST(_request: Request, context: RouteContext) {
   }
 
   // A confirmed invoice can feed financial totals. Never let a user accidentally
-  // approve a record when the minimum fields for those totals are still unknown.
+  // approve a record when the minimum fields for those totals are still unknown
+  // or when the stored amounts contradict each other.
   // RLS keeps this lookup scoped to the user's own company data.
   const { data: invoice, error: invoiceError } = await supabase
     .from("invoices")
-    .select("invoice_type,total")
+    .select("invoice_type,subtotal,vat_amount,total")
     .eq("id", invoiceId)
     .maybeSingle();
 
@@ -40,6 +41,23 @@ export async function POST(_request: Request, context: RouteContext) {
       },
       { status: 409 },
     );
+  }
+
+  if (invoice.subtotal !== null && invoice.vat_amount !== null && invoice.total !== null) {
+    const subtotal = Number(invoice.subtotal);
+    const vatAmount = Number(invoice.vat_amount);
+    const total = Number(invoice.total);
+    const amountsAreValid = [subtotal, vatAmount, total].every(Number.isFinite);
+    const amountsMatch = amountsAreValid && Math.abs((subtotal + vatAmount) - total) <= 0.02;
+
+    if (!amountsMatch) {
+      return NextResponse.json(
+        {
+          error: "Controleer eerst de bedragen. Bedrag zonder btw + btw komt niet overeen met het totaal. Pas de factuur aan voordat je ze bevestigt.",
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const { error } = await supabase.rpc("confirm_invoice_extraction", {
