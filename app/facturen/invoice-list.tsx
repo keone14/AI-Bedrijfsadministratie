@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import InvoiceReviewActions from "./invoice-review-actions";
+import InvoiceExtractionRetry from "./invoice-extraction-retry";
 
 type InvoiceRow = {
   id: string;
@@ -200,7 +201,11 @@ export default async function InvoiceList() {
               </div>
 
               {job?.status === "failed" ? (
-                <div className="invoice-read-warning" role="status"><strong>De uitlezing is niet betrouwbaar afgerond.</strong><span>Je originele factuur blijft veilig bewaard. We tonen geen verzonnen gegevens.</span></div>
+                <div className="invoice-read-warning" role="status">
+                  <strong>De uitlezing is niet betrouwbaar afgerond.</strong>
+                  <span>Je originele factuur blijft veilig bewaard. We tonen geen verzonnen gegevens.</span>
+                  <InvoiceExtractionRetry invoiceId={invoice.id} />
+                </div>
               ) : hasExtraction ? (
                 <>
                   <div className="invoice-confidence-note">
