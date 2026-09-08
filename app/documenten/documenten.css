@@ -2,10 +2,19 @@
 .documents-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .documents-heading h1 { margin: 8px 0 10px; font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.05; letter-spacing: -.045em; max-width: 760px; }
 .documents-heading p { max-width: 760px; line-height: 1.6; }
+.documents-search-card { padding: 18px 20px; }
+.documents-search { display: grid; gap: 10px; }
+.documents-search label { font-weight: 750; color: var(--text); }
+.documents-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; }
+.documents-search-row input { width: 100%; min-width: 0; min-height: 46px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: var(--text); padding: 10px 13px; font: inherit; }
+.documents-search-row input::placeholder { color: var(--muted); }
+.documents-search-row input:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 18%, transparent); outline-offset: 1px; border-color: var(--accent); }
+.documents-search-row .button { min-height: 46px; white-space: nowrap; }
+.documents-search p { margin: 0; font-size: .88rem; line-height: 1.5; }
 .documents-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .documents-summary .card { display: grid; gap: 4px; }
 .documents-summary strong { font-size: 1.9rem; letter-spacing: -.035em; }
-.documents-summary p { margin: 0; font-size: .9rem; }
+.documents-summary p { margin: 0; font-size: .9rem; overflow-wrap: anywhere; }
 .documents-summary-label { color: var(--muted); font-size: .82rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 .documents-list-card { padding: 0; overflow: hidden; }
 .documents-list-heading { padding: 20px; border-bottom: 1px solid var(--line); }
@@ -36,10 +45,15 @@
 @media (max-width: 900px) {
   .documents-heading { align-items: stretch; flex-direction: column; }
   .documents-heading .button { align-self: flex-start; min-height: 44px; }
+  .documents-search-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .documents-search-row .secondary { grid-column: 1 / -1; justify-self: start; }
   .documents-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 700px) {
+  .documents-search-card { padding: 16px; }
+  .documents-search-row { grid-template-columns: 1fr; }
+  .documents-search-row .button, .documents-search-row .secondary { width: 100%; justify-content: center; }
   .documents-summary { grid-template-columns: 1fr; }
   .document-row { align-items: stretch; flex-direction: column; }
   .document-row-side { justify-items: stretch; }
