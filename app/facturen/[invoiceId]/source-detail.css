@@ -16,7 +16,9 @@
 .invoice-source-description { display: grid; gap: 6px; }
 .invoice-source-description p { margin: 0; line-height: 1.55; }
 .invoice-source-note { border: 1px solid #d8e3e8; background: #f8fbfc; border-radius: 11px; padding: 14px 15px; }
+.invoice-source-note.is-warning { border-color: #ead7b8; background: #fffaf2; }
 .invoice-source-note p { margin: 6px 0 0; color: var(--muted); line-height: 1.5; }
+.invoice-source-note .text-button { display: inline-flex; min-height: 44px; align-items: center; }
 
 @media (max-width: 620px) {
   .invoice-source-page { padding: 18px 14px 40px; }
