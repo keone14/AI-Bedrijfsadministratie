@@ -39,6 +39,7 @@ type InvoiceRow = {
   total: number | null;
   review_status: string;
   created_at: string;
+  possibleDuplicate?: boolean;
 };
 
 type DocumentRow = { id: string; document_type: string | null };
@@ -87,6 +88,13 @@ function toNumber(value: number | null) {
 function normalizeVatStatus(value: string | null): DashboardVatStatus {
   if (value === "yes" || value === "no") return value;
   return "unknown";
+}
+
+function recentInvoiceStatus(invoice: InvoiceRow) {
+  if (invoice.possibleDuplicate) return "Mogelijk dubbel - nakijken";
+  if (invoice.review_status === "confirmed") return "Door jou bevestigd";
+  if (invoice.review_status === "auto_verified") return "Automatisch in orde";
+  return "Nog nakijken";
 }
 
 async function loadDashboardData(): Promise<DashboardData> {
@@ -180,7 +188,7 @@ async function loadDashboardData(): Promise<DashboardData> {
     return {
       summary: calculateDashboardFinancialSummary(calculationRows, currentBelgianMonthPeriod()),
       traceInvoices,
-      recentInvoices: invoices.slice(0, 5),
+      recentInvoices: invoices.slice(0, 5).map((invoice) => ({ ...invoice, possibleDuplicate: duplicateIds.has(invoice.id) })),
       companyState: "ready",
       totalInvoiceCount: invoices.length,
       vatStatus,
@@ -276,7 +284,7 @@ export default async function DashboardPage() {
                 {data.recentInvoices.map((invoice) => (
                   <div className="dashboard-recent-item" key={invoice.id}>
                     <div><strong>{invoice.supplier_name ?? invoice.customer_name ?? "Factuur"}</strong><span>{invoice.invoice_date ?? "Datum nog niet betrouwbaar"}</span></div>
-                    <div><strong>{formatMoney(toNumber(invoice.total), invoice.currency)}</strong><span>{invoice.review_status === "confirmed" ? "Door jou bevestigd" : invoice.review_status === "auto_verified" ? "Automatisch in orde" : "Nog nakijken"}</span></div>
+                    <div><strong>{formatMoney(toNumber(invoice.total), invoice.currency)}</strong><span>{recentInvoiceStatus(invoice)}</span></div>
                   </div>
                 ))}
               </div>
