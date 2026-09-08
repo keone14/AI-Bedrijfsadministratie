@@ -43,13 +43,14 @@ type DeadlineAction = {
 type DeadlinesData = {
   state: PageState;
   reviewCount: number;
+  duplicateReviewCount: number;
   now: DeadlineAction[];
   soon: DeadlineAction[];
   later: DeadlineAction[];
 };
 
 function emptyData(state: PageState): DeadlinesData {
-  return { state, reviewCount: 0, now: [], soon: [], later: [] };
+  return { state, reviewCount: 0, duplicateReviewCount: 0, now: [], soon: [], later: [] };
 }
 
 function belgianTodayIso() {
@@ -149,6 +150,7 @@ async function loadDeadlines(): Promise<DeadlinesData> {
     const reviewCount = invoices.filter((invoice) =>
       invoice.review_status !== "confirmed" && invoice.review_status !== "auto_verified",
     ).length;
+    const duplicateReviewCount = invoices.filter((invoice) => duplicateIds.has(invoice.id)).length;
     const today = belgianTodayIso();
     const actions: DeadlineAction[] = invoices
       .filter((invoice) =>
@@ -165,6 +167,7 @@ async function loadDeadlines(): Promise<DeadlinesData> {
     return {
       state: "ready",
       reviewCount,
+      duplicateReviewCount,
       now: actions.filter((item) => item.daysLeft <= 7),
       soon: actions.filter((item) => item.daysLeft > 7 && item.daysLeft <= 30),
       later: actions.filter((item) => item.daysLeft > 30),
@@ -258,6 +261,13 @@ export default async function DeadlinesPage() {
                   <strong>{data.reviewCount} factuur{data.reviewCount === 1 ? "" : "en"} nog nakijken</strong>
                   <p>Die kunnen nog een vervaldatum bevatten die hier bewust niet wordt getoond zolang de uitlezing niet betrouwbaar is.</p>
                   <Link className="button secondary" href="/facturen">Controleer facturen</Link>
+                </div>
+              ) : null}
+              {data.duplicateReviewCount > 0 ? (
+                <div className="deadline-review-callout">
+                  <strong>{data.duplicateReviewCount} mogelijk dubbele factuur{data.duplicateReviewCount === 1 ? "" : "en"} controleren</strong>
+                  <p>Deze facturen tellen bewust niet mee als deadline tot je hebt bevestigd of het echt een duplicaat is. Vergelijk de originele documenten voordat je beslist.</p>
+                  <Link className="button secondary" href="/facturen">Controleer mogelijke dubbels</Link>
                 </div>
               ) : null}
             </section>
