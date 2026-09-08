@@ -13,8 +13,9 @@
 .deadline-status-card p { margin: 0; line-height: 1.55; }
 .status-neutral { color: #344054; }
 .dot-neutral { background: #98a2b3; }
-.deadline-review-callout { border: 1px solid #ead7b8; background: #fffaf2; border-radius: 12px; padding: 15px; display: grid; gap: 9px; }
-.deadline-review-callout strong { color: #7a5316; }
+.deadline-review-stack { display: grid; gap: 10px; min-width: 0; }
+.deadline-review-callout { border: 1px solid #ead7b8; background: #fffaf2; border-radius: 12px; padding: 15px; display: grid; gap: 9px; min-width: 0; }
+.deadline-review-callout strong { color: #7a5316; overflow-wrap: anywhere; }
 .deadline-review-callout p { color: #725b35; font-size: .9rem; }
 .deadline-review-callout .button { justify-self: start; }
 .deadline-groups { display: grid; gap: 22px; }
@@ -59,5 +60,5 @@
   .deadline-countdown { justify-self: start; max-width: none; }
   .deadline-date-row { display: grid; gap: 4px; }
   .deadline-date-row strong { text-align: left; }
-  .deadline-action { width: 100%; }
+  .deadline-action, .deadline-review-callout .button { width: 100%; }
 }
