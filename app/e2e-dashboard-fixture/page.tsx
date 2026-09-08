@@ -6,6 +6,7 @@ import {
   type DashboardInvoice,
   type DashboardPeriod,
 } from "@/lib/dashboard/financial-summary";
+import { possibleDuplicateInvoiceIds, type DuplicateInvoiceCandidate } from "@/lib/invoices/duplicate-detection";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,10 @@ const period: DashboardPeriod = {
 export default async function DashboardE2EFixturePage({
   searchParams,
 }: {
-  searchParams: Promise<{ confirmed?: string; mixed?: string; credit?: string; vat?: string; unreliable?: string }>;
+  searchParams: Promise<{ confirmed?: string; mixed?: string; credit?: string; vat?: string; unreliable?: string; duplicate?: string; distinct?: string }>;
 }) {
   if (process.env.E2E_TEST_MODE !== "1") notFound();
-  const { confirmed, mixed, credit, vat, unreliable } = await searchParams;
+  const { confirmed, mixed, credit, vat, unreliable, duplicate, distinct } = await searchParams;
   const vatStatus: DashboardVatStatus = vat === "unknown" ? "unknown" : vat === "no" ? "no" : "yes";
 
   const invoices: DashboardInvoice[] = [
@@ -53,6 +54,47 @@ export default async function DashboardE2EFixturePage({
     { id: "sale-1", title: "Klant Alpha", invoiceNumber: "V-2026-001", invoiceDate: "2026-09-03", documentType: "invoice" },
     { id: "purchase-1", title: "Leverancier Beta", invoiceNumber: "A-2026-017", invoiceDate: "2026-09-02", documentType: "invoice" },
   ];
+
+  if (duplicate === "1") {
+    const candidates: DuplicateInvoiceCandidate[] = [
+      {
+        id: "purchase-1",
+        supplier_name: "Leverancier Beta",
+        customer_name: null,
+        invoice_number: "A-2026-017",
+        invoice_date: "2026-09-02",
+        total: 242,
+        currency: "EUR",
+        created_at: "2026-09-02T08:00:00Z",
+      },
+      {
+        id: "purchase-2",
+        supplier_name: "Leverancier Beta",
+        customer_name: null,
+        invoice_number: "A-2026-017",
+        invoice_date: "2026-09-02",
+        total: 242,
+        currency: "EUR",
+        created_at: "2026-09-02T09:00:00Z",
+        duplicate_resolution: distinct === "1" ? "confirmed_distinct" : null,
+      },
+    ];
+    const duplicateIds = possibleDuplicateInvoiceIds(candidates);
+
+    invoices.push({
+      id: "purchase-2",
+      invoiceType: "purchase",
+      invoiceDate: "2026-09-02",
+      currency: "EUR",
+      subtotal: 200,
+      vatAmount: 42,
+      total: 242,
+      reviewStatus: "confirmed",
+      documentType: "invoice",
+      possibleDuplicate: duplicateIds.has("purchase-2"),
+    });
+    traceInvoices.push({ id: "purchase-2", title: "Leverancier Beta", invoiceNumber: "A-2026-017", invoiceDate: "2026-09-02", documentType: "invoice" });
+  }
 
   if (credit === "1") {
     invoices.push({
