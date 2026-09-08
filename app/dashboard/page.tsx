@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 const nav = [
   { label: "Dashboard", href: "/dashboard", active: true },
   { label: "Facturen", href: "/facturen" },
-  { label: "Documenten", href: null },
+  { label: "Documenten", href: "/documenten" },
   { label: "Deadlines", href: null },
   { label: "Assistent", href: null },
   { label: "Bedrijf", href: "/onboarding" },
@@ -297,7 +297,7 @@ export default async function DashboardPage() {
       </main>
 
       <nav className="mobile-nav" aria-label="Mobiele navigatie">
-        <Link className="active" href="/dashboard">Home</Link><Link href="/facturen">Facturen</Link><Link href="/onboarding">Bedrijf</Link><span aria-disabled="true">Deadlines</span><span aria-disabled="true">Meer</span>
+        <Link className="active" href="/dashboard">Home</Link><Link href="/facturen">Facturen</Link><Link href="/documenten">Documenten</Link><Link href="/onboarding">Bedrijf</Link><span aria-disabled="true">Deadlines</span>
       </nav>
     </div>
   );
