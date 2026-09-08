@@ -8,6 +8,7 @@ export type DuplicateInvoiceCandidate = {
   total: number | null;
   currency: string | null;
   created_at: string;
+  duplicate_resolution?: string | null;
 };
 
 export function normalizeDuplicateText(value: string | null) {
@@ -28,10 +29,14 @@ export function duplicateInvoiceKey(invoice: DuplicateInvoiceCandidate) {
   return `${companyScope}${counterparty}|${invoiceNumber}|${invoice.invoice_date}|${total.toFixed(2)}|${currency}`;
 }
 
+function unresolvedDuplicateCandidates<T extends DuplicateInvoiceCandidate>(invoices: T[]) {
+  return invoices.filter((invoice) => invoice.duplicate_resolution !== "confirmed_distinct");
+}
+
 export function groupPossibleDuplicateInvoices<T extends DuplicateInvoiceCandidate>(invoices: T[]) {
   const groups = new Map<string, T[]>();
 
-  for (const invoice of invoices) {
+  for (const invoice of unresolvedDuplicateCandidates(invoices)) {
     const key = duplicateInvoiceKey(invoice);
     if (!key) continue;
 
