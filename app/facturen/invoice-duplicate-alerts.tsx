@@ -1,44 +1,17 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  duplicateInvoiceKey,
+  groupPossibleDuplicateInvoices,
+  type DuplicateInvoiceCandidate,
+} from "@/lib/invoices/duplicate-detection";
 
-type InvoiceCandidate = {
-  id: string;
+type InvoiceCandidate = DuplicateInvoiceCandidate & {
   company_id: string;
-  supplier_name: string | null;
-  customer_name: string | null;
-  invoice_number: string | null;
-  invoice_date: string | null;
-  total: number | null;
-  currency: string | null;
-  created_at: string;
 };
 
 const invoicePageSize = 1000;
 const visibleDuplicateGroupLimit = 5;
-
-function normalizeText(value: string | null) {
-  return value?.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase("nl-BE") ?? "";
-}
-
-function duplicateKey(invoice: InvoiceCandidate) {
-  const counterparty = normalizeText(invoice.supplier_name ?? invoice.customer_name);
-  const invoiceNumber = normalizeText(invoice.invoice_number);
-  const currency = normalizeText(invoice.currency);
-  const total = invoice.total === null ? Number.NaN : Number(invoice.total);
-
-  if (!counterparty || !invoiceNumber || !invoice.invoice_date || !currency || !Number.isFinite(total)) {
-    return null;
-  }
-
-  return [
-    invoice.company_id,
-    counterparty,
-    invoiceNumber,
-    invoice.invoice_date,
-    total.toFixed(2),
-    currency,
-  ].join("|");
-}
 
 function displayCounterparty(invoice: InvoiceCandidate) {
   return invoice.supplier_name ?? invoice.customer_name ?? "Onbekende partij";
@@ -78,19 +51,7 @@ export default async function InvoiceDuplicateAlerts() {
     offset += invoicePageSize;
   }
 
-  const groups = new Map<string, InvoiceCandidate[]>();
-
-  for (const invoice of invoices) {
-    const key = duplicateKey(invoice);
-    if (!key) continue;
-
-    const current = groups.get(key) ?? [];
-    current.push(invoice);
-    groups.set(key, current);
-  }
-
-  const duplicateGroups = Array.from(groups.values())
-    .filter((group) => group.length > 1)
+  const duplicateGroups = groupPossibleDuplicateInvoices(invoices)
     .sort((a, b) => Date.parse(b[0]?.created_at ?? "") - Date.parse(a[0]?.created_at ?? ""));
 
   if (!duplicateGroups.length) return null;
@@ -117,7 +78,7 @@ export default async function InvoiceDuplicateAlerts() {
           if (!first) return null;
 
           return (
-            <div className="invoice-read-warning" key={duplicateKey(first) ?? first.id}>
+            <div className="invoice-read-warning" key={duplicateInvoiceKey(first) ?? first.id}>
               <strong>{displayCounterparty(first)} · factuur {first.invoice_number}</strong>
               <span>{group.length} exemplaren hebben dezelfde kerngegevens. Controleer ze voordat je erop vertrouwt in je administratie.</span>
               <span>
