@@ -8,6 +8,7 @@ export type DashboardInvoice = {
   total: number | null;
   reviewStatus: string;
   documentType: "invoice" | "credit_note" | null;
+  possibleDuplicate?: boolean;
 };
 
 export type DashboardPeriod = {
@@ -64,6 +65,7 @@ function inPeriod(date: string | null, period: DashboardPeriod) {
 }
 
 function isReliableForTotals(invoice: DashboardInvoice) {
+  if (invoice.possibleDuplicate) return false;
   if (!reliableStatuses.has(invoice.reviewStatus)) return false;
   if (invoice.invoiceType !== "purchase" && invoice.invoiceType !== "sale") return false;
   if (invoice.documentType !== "invoice" && invoice.documentType !== "credit_note") return false;
@@ -105,9 +107,9 @@ export function calculateDashboardFinancialSummary(
   const undatedInvoiceCount = invoices.filter((invoice) => invoice.invoiceDate === null).length;
   const reliable = datedInPeriod.filter(isReliableForTotals);
   const excluded = datedInPeriod.filter((invoice) => !isReliableForTotals(invoice));
-  // A factuur kan door de gebruiker bevestigd zijn en toch ongeschikt blijven voor
-  // betrouwbare totalen, bijvoorbeeld door ontbrekende valuta of bedragen. Zulke
-  // facturen moeten zichtbaar een controlepunt blijven in plaats van stil te verdwijnen.
+  // Een factuur kan door de gebruiker bevestigd zijn en toch ongeschikt blijven voor
+  // betrouwbare totalen, bijvoorbeeld door ontbrekende valuta, bedragen of een sterk
+  // duplicaatsignaal. Zulke facturen moeten zichtbaar een controlepunt blijven.
   const needsReviewCount = excluded.length;
   const currencies = Array.from(new Set(reliable.map((invoice) => invoice.currency as string))).sort();
 
