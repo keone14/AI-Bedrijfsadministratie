@@ -6,14 +6,14 @@ import "./facturen.css";
 
 export const dynamic = "force-dynamic";
 
-type CompanyContextState = "ready" | "no_company" | "multiple_companies" | "error";
+type CompanyContextState = "ready" | "unauthenticated" | "no_company" | "multiple_companies" | "error";
 
 async function companyContextState(): Promise<CompanyContextState> {
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) redirect("/login");
+    if (!user) return "unauthenticated";
 
     const { data: memberships, error } = await supabase
       .from("company_members")
@@ -31,7 +31,7 @@ async function companyContextState(): Promise<CompanyContextState> {
   }
 }
 
-function SafeCompanyState({ state }: { state: Exclude<CompanyContextState, "ready"> }) {
+function SafeCompanyState({ state }: { state: Exclude<CompanyContextState, "ready" | "unauthenticated"> }) {
   const copy = state === "multiple_companies"
     ? {
         title: "Kies eerst welk bedrijf je wilt gebruiken",
@@ -60,6 +60,7 @@ function SafeCompanyState({ state }: { state: Exclude<CompanyContextState, "read
 
 export default async function FacturenLayout({ children }: { children: ReactNode }) {
   const state = await companyContextState();
+  if (state === "unauthenticated") redirect("/login");
   if (state !== "ready") return <SafeCompanyState state={state} />;
   return children;
 }
