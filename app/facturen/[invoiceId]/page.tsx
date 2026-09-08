@@ -1,23 +1,23 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  groupPossibleDuplicateInvoices,
+  possibleDuplicateInvoiceIds,
+  type DuplicateInvoiceCandidate,
+} from "@/lib/invoices/duplicate-detection";
 import "./source-detail.css";
 
 export const dynamic = "force-dynamic";
 
-type InvoiceSourceRow = {
-  id: string;
+const invoicePageSize = 1000;
+
+type InvoiceSourceRow = DuplicateInvoiceCandidate & {
   company_id: string;
   document_id: string;
-  supplier_name: string | null;
-  customer_name: string | null;
-  invoice_number: string | null;
-  invoice_date: string | null;
   due_date: string | null;
-  currency: string | null;
   subtotal: number | null;
   vat_amount: number | null;
-  total: number | null;
   description: string | null;
   invoice_type: string | null;
   review_status: string;
@@ -41,7 +41,8 @@ function formatMoney(value: number | null, currency: string | null) {
   }
 }
 
-function statusLabel(status: string) {
+function statusLabel(status: string, possibleDuplicate: boolean) {
+  if (possibleDuplicate) return "Mogelijk dubbel - eerst nakijken";
   if (status === "confirmed") return "Door jou bevestigd";
   if (status === "auto_verified") return "Automatisch in orde";
   return "Nog niet betrouwbaar bevestigd";
@@ -64,7 +65,7 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
 
   const { data: invoiceData, error: invoiceError } = await supabase
     .from("invoices")
-    .select("id, company_id, document_id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, review_status")
+    .select("id, company_id, document_id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, review_status, created_at")
     .eq("id", invoiceId)
     .in("company_id", companyIds)
     .maybeSingle();
@@ -80,7 +81,41 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
     .maybeSingle();
   const document = (documentData ?? null) as DocumentSourceRow | null;
 
+  const duplicateCandidates: DuplicateInvoiceCandidate[] = [];
+  let offset = 0;
+  let duplicateLookupFailed = false;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("id, company_id, supplier_name, customer_name, invoice_number, invoice_date, total, currency, created_at")
+      .eq("company_id", invoice.company_id)
+      .order("created_at", { ascending: true })
+      .range(offset, offset + invoicePageSize - 1);
+
+    if (error) {
+      duplicateLookupFailed = true;
+      break;
+    }
+
+    const page = (data ?? []) as DuplicateInvoiceCandidate[];
+    duplicateCandidates.push(...page);
+    if (page.length < invoicePageSize) break;
+    offset += invoicePageSize;
+  }
+
+  const duplicateIds = duplicateLookupFailed ? new Set<string>() : possibleDuplicateInvoiceIds(duplicateCandidates);
+  const duplicateGroup = duplicateLookupFailed
+    ? null
+    : groupPossibleDuplicateInvoices(duplicateCandidates).find((group) => group.some((candidate) => candidate.id === invoice.id)) ?? null;
+  const possibleDuplicate = duplicateIds.has(invoice.id);
+  const duplicateOriginal = duplicateGroup
+    ? [...duplicateGroup].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))[0] ?? null
+    : null;
+  const duplicateOthers = duplicateGroup?.filter((candidate) => candidate.id !== invoice.id) ?? [];
+
   const title = invoice.supplier_name ?? invoice.customer_name ?? document?.display_name ?? document?.original_filename ?? "Factuur";
+  const statusIsOk = !possibleDuplicate && (invoice.review_status === "confirmed" || invoice.review_status === "auto_verified");
 
   return (
     <main className="invoice-source-page">
@@ -94,10 +129,24 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
         <div className="invoice-source-heading">
           <div>
             <h1 id="invoice-source-title">{title}</h1>
-            <p className="muted">Dit is de factuur waarnaar je dashboardberekening verwijst. De bedragen hieronder komen uit de opgeslagen factuurgegevens, niet uit een nieuwe AI-berekening.</p>
+            <p className="muted">Hier zie je de opgeslagen gegevens van deze factuur. Alleen facturen die betrouwbaar genoeg zijn, tellen mee in het dashboard.</p>
           </div>
-          <span className={`invoice-source-status ${invoice.review_status === "confirmed" || invoice.review_status === "auto_verified" ? "is-ok" : "is-review"}`}>{statusLabel(invoice.review_status)}</span>
+          <span className={`invoice-source-status ${statusIsOk ? "is-ok" : "is-review"}`}>{statusLabel(invoice.review_status, possibleDuplicate)}</span>
         </div>
+
+        {possibleDuplicate && duplicateOriginal ? (
+          <div className="invoice-source-note is-warning" role="status">
+            <strong>Deze factuur lijkt mogelijk dubbel.</strong>
+            <p>We vonden dezelfde partij, hetzelfde factuurnummer, dezelfde datum, dezelfde valuta en hetzelfde totaal bij een oudere upload. Daarom telt deze versie voorlopig niet mee in je dashboard. We verwijderen niets automatisch.</p>
+            <p><Link className="text-button" href={`/facturen/${duplicateOriginal.id}`}>Bekijk de eerdere factuur</Link></p>
+          </div>
+        ) : duplicateOthers.length > 0 ? (
+          <div className="invoice-source-note is-warning" role="status">
+            <strong>We vonden ook {duplicateOthers.length === 1 ? "een latere factuur" : `${duplicateOthers.length} latere facturen`} met dezelfde kerngegevens.</strong>
+            <p>Deze oudere versie blijft voorlopig de referentie. De latere mogelijke duplicaten tellen niet mee totdat deze situatie veilig kan worden afgehandeld.</p>
+            <p><Link className="text-button" href={`/facturen/${duplicateOthers[0].id}`}>Bekijk {duplicateOthers.length === 1 ? "de andere factuur" : "een mogelijk duplicaat"}</Link></p>
+          </div>
+        ) : null}
 
         <div className="invoice-source-grid">
           <div><span>Document</span><strong>{document?.document_type === "credit_note" ? "Creditnota" : "Factuur"}</strong></div>
@@ -114,7 +163,7 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
 
         <div className="invoice-source-note">
           <strong>Waarom zie ik deze pagina?</strong>
-          <p>Je klikte vanuit een dashboardbedrag door naar één van de facturen die dat bedrag vormt. Ga terug naar het dashboard om de bijdrage van deze factuur in de volledige berekening te zien.</p>
+          <p>Deze pagina toont de opgeslagen brongegevens achter deze factuur. Zo kan je altijd controleren wat de app gelezen heeft en waarom een factuur wel of niet betrouwbaar in je financieel overzicht kan worden gebruikt.</p>
         </div>
       </section>
     </main>
