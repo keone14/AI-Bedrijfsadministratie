@@ -82,19 +82,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Uploadgegevens ontbreken." }, { status: 400 });
   }
 
-  const { data: membership } = await supabase
+  const { data: memberships, error: membershipError } = await supabase
     .from("company_members")
     .select("company_id")
     .eq("user_id", user.id)
     .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+    .limit(2);
 
-  if (!membership?.company_id) {
+  if (membershipError) {
+    return NextResponse.json({ error: "We konden je bedrijf nu niet betrouwbaar bepalen. Probeer opnieuw." }, { status: 500 });
+  }
+
+  if (!memberships?.length) {
     return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
   }
 
-  const storageExtension = validatedStorageExtension(storagePath, membership.company_id, documentId);
+  if (memberships.length > 1) {
+    return NextResponse.json(
+      { error: "Je hebt toegang tot meerdere bedrijven. Kies eerst welk bedrijf je wilt gebruiken voordat we deze upload afronden." },
+      { status: 409 },
+    );
+  }
+
+  const companyId = memberships[0].company_id as string;
+  const storageExtension = validatedStorageExtension(storagePath, companyId, documentId);
   if (!storageExtension) {
     return NextResponse.json({ error: "Deze upload hoort niet bij je bedrijf of heeft een ongeldige opslaglocatie." }, { status: 403 });
   }
@@ -131,7 +142,7 @@ export async function POST(request: Request) {
   const displayName = safeDisplayName(originalFilename);
 
   const { data: invoiceId, error: registerError } = await supabase.rpc("register_validated_invoice_upload", {
-    target_company_id: membership.company_id,
+    target_company_id: companyId,
     target_document_id: documentId,
     target_storage_path: storagePath,
     original_name: originalFilename.slice(0, 500),
