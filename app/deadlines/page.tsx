@@ -190,7 +190,7 @@ function DeadlineCard({ item }: { item: DeadlineAction }) {
       </div>
       <div className="deadline-date-row"><span>Vervaldatum</span><strong>{formatDate(invoice.due_date as string)}</strong></div>
       <p className="deadline-explanation">{actionCopy(invoice)}</p>
-      <Link className="button secondary deadline-action" href="/facturen">Bekijk factuur</Link>
+      <Link className="button secondary deadline-action" href={`/facturen/${invoice.id}`}>Bekijk factuur</Link>
     </article>
   );
 }
