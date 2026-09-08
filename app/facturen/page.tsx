@@ -8,7 +8,7 @@ const nav = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Facturen", href: "/facturen", active: true },
   { label: "Documenten", href: "/documenten" },
-  { label: "Deadlines", href: null },
+  { label: "Deadlines", href: "/deadlines" },
   { label: "Assistent", href: null },
   { label: "Bedrijf", href: "/onboarding" },
 ];
@@ -116,7 +116,7 @@ export default function FacturenPage() {
       </main>
 
       <nav className="mobile-nav" aria-label="Mobiele navigatie">
-        <Link href="/dashboard">Home</Link><Link className="active" href="/facturen">Facturen</Link><Link href="/documenten">Documenten</Link><Link href="/onboarding">Bedrijf</Link><span aria-disabled="true">Deadlines</span>
+        <Link href="/dashboard">Home</Link><Link className="active" href="/facturen">Facturen</Link><Link href="/documenten">Documenten</Link><Link href="/deadlines">Deadlines</Link><Link href="/onboarding">Bedrijf</Link>
       </nav>
     </div>
   );
