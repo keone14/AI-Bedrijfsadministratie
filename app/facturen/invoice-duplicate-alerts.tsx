@@ -38,7 +38,7 @@ export default async function InvoiceDuplicateAlerts() {
   while (true) {
     const { data, error } = await supabase
       .from("invoices")
-      .select("id, company_id, supplier_name, customer_name, invoice_number, invoice_date, total, currency, created_at")
+      .select("id, company_id, supplier_name, customer_name, invoice_number, invoice_date, total, currency, duplicate_resolution, created_at")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
       .range(offset, offset + invoicePageSize - 1);
@@ -84,7 +84,7 @@ export default async function InvoiceDuplicateAlerts() {
             <div className="invoice-read-warning" key={duplicateInvoiceKey(referenceInvoice) ?? referenceInvoice.id}>
               <strong>{displayCounterparty(referenceInvoice)} · factuur {referenceInvoice.invoice_number}</strong>
               <span>
-                Vergelijk eerst de documenten zelf. Als ze werkelijk dezelfde factuur zijn, hoef je het latere exemplaar niet te vertrouwen. Zijn het toch twee verschillende facturen, dan blijft dit een open controlepunt totdat je dat veilig kunt bevestigen.
+                Vergelijk eerst de documenten zelf. Als ze werkelijk dezelfde factuur zijn, hoef je het latere exemplaar niet te vertrouwen. Zijn het toch twee verschillende facturen, open dan het mogelijke duplicaat en bevestig daar dat het een aparte factuur is.
               </span>
               <span>
                 <Link href={`/facturen/${referenceInvoice.id}`}>Open eerdere factuur (referentie)</Link>
