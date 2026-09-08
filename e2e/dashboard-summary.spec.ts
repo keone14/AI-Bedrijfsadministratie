@@ -27,6 +27,21 @@ test("confirmed invoice that is still unreliable remains a visible review item",
   await expect(page.getByTestId("dashboard-costs")).toContainText("0,00");
 });
 
+test("possible duplicate stays excluded until user confirms it is a distinct invoice", async ({ page }) => {
+  await page.goto("/e2e-dashboard-fixture?confirmed=1&duplicate=1");
+  await expect(page.getByTestId("reliable-count")).toHaveText("2");
+  await expect(page.getByTestId("review-count")).toHaveText("1");
+  await expect(page.getByTestId("dashboard-costs")).toContainText("200,00");
+
+  await page.goto("/e2e-dashboard-fixture?confirmed=1&duplicate=1&distinct=1");
+  await expect(page.getByTestId("reliable-count")).toHaveText("3");
+  await expect(page.getByTestId("review-count")).toHaveText("0");
+  await expect(page.getByTestId("dashboard-costs")).toContainText("400,00");
+
+  const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(hasHorizontalOverflow).toBe(false);
+});
+
 test("every reliable non-VAT dashboard amount shows exact source invoices and contributions", async ({ page }) => {
   await page.goto("/e2e-dashboard-fixture?confirmed=1");
   const revenueTrace = page.getByTestId("dashboard-revenue-trace");
