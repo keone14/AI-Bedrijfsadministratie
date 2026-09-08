@@ -220,6 +220,8 @@ export default async function DeadlinesPage() {
         ? { title: "We konden je acties nu niet betrouwbaar laden", text: "We tonen liever niets dan een verkeerde deadline of factuuractie." }
         : null;
 
+  const hasReviewWork = data.reviewCount > 0 || data.duplicateReviewCount > 0;
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -256,18 +258,22 @@ export default async function DeadlinesPage() {
                 <div className="status status-neutral"><span className="dot dot-neutral" /><span id="deadline-status-title">Factuuracties zijn actief</span></div>
                 <p className="muted">We gebruiken alleen vervaldata van facturen die al betrouwbaar bevestigd zijn. Mogelijke duplicaten en onzekere datums worden niet stilletjes als deadline gebruikt.</p>
               </div>
-              {data.reviewCount > 0 ? (
-                <div className="deadline-review-callout">
-                  <strong>{data.reviewCount} factuur{data.reviewCount === 1 ? "" : "en"} nog nakijken</strong>
-                  <p>Die kunnen nog een vervaldatum bevatten die hier bewust niet wordt getoond zolang de uitlezing niet betrouwbaar is.</p>
-                  <Link className="button secondary" href="/facturen">Controleer facturen</Link>
-                </div>
-              ) : null}
-              {data.duplicateReviewCount > 0 ? (
-                <div className="deadline-review-callout">
-                  <strong>{data.duplicateReviewCount} mogelijk dubbele factuur{data.duplicateReviewCount === 1 ? "" : "en"} controleren</strong>
-                  <p>Deze facturen tellen bewust niet mee als deadline tot je hebt bevestigd of het echt een duplicaat is. Vergelijk de originele documenten voordat je beslist.</p>
-                  <Link className="button secondary" href="/facturen">Controleer mogelijke dubbels</Link>
+              {hasReviewWork ? (
+                <div className="deadline-review-stack" aria-label="Facturen die nog controle nodig hebben">
+                  {data.reviewCount > 0 ? (
+                    <div className="deadline-review-callout">
+                      <strong>{data.reviewCount} factuur{data.reviewCount === 1 ? "" : "en"} nog nakijken</strong>
+                      <p>Die kunnen nog een vervaldatum bevatten die hier bewust niet wordt getoond zolang de uitlezing niet betrouwbaar is.</p>
+                      <Link className="button secondary" href="/facturen">Controleer facturen</Link>
+                    </div>
+                  ) : null}
+                  {data.duplicateReviewCount > 0 ? (
+                    <div className="deadline-review-callout">
+                      <strong>{data.duplicateReviewCount} mogelijk dubbele factuur{data.duplicateReviewCount === 1 ? "" : "en"} controleren</strong>
+                      <p>Deze facturen tellen bewust niet mee als deadline tot je hebt bevestigd of het echt een duplicaat is. Vergelijk de originele documenten voordat je beslist.</p>
+                      <Link className="button secondary" href="/facturen">Controleer mogelijke dubbels</Link>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </section>
