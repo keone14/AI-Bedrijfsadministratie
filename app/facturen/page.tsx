@@ -1,5 +1,6 @@
 import Link from "next/link";
 import InvoiceUpload from "./invoice-upload";
+import InvoiceDuplicateAlerts from "./invoice-duplicate-alerts";
 import InvoiceList from "./invoice-list";
 import "./facturen.css";
 
@@ -65,6 +66,7 @@ export default function FacturenPage() {
         </header>
 
         <InvoiceUpload />
+        <InvoiceDuplicateAlerts />
         <InvoiceList />
 
         <section className="card invoice-safety-card" aria-labelledby="upload-status-title">
