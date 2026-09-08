@@ -88,6 +88,39 @@ function normalizeVatStatus(value: string | null): DashboardVatStatus {
   return "unknown";
 }
 
+function normalizeDuplicateText(value: string | null) {
+  return value?.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase("nl-BE") ?? "";
+}
+
+function duplicateKey(invoice: InvoiceRow) {
+  const counterparty = normalizeDuplicateText(invoice.supplier_name ?? invoice.customer_name);
+  const invoiceNumber = normalizeDuplicateText(invoice.invoice_number);
+  const currency = normalizeDuplicateText(invoice.currency);
+  const total = invoice.total === null ? Number.NaN : Number(invoice.total);
+
+  if (!counterparty || !invoiceNumber || !invoice.invoice_date || !currency || !Number.isFinite(total)) return null;
+  return [counterparty, invoiceNumber, invoice.invoice_date, total.toFixed(2), currency].join("|");
+}
+
+function possibleDuplicateIds(invoices: InvoiceRow[]) {
+  const groups = new Map<string, InvoiceRow[]>();
+  for (const invoice of invoices) {
+    const key = duplicateKey(invoice);
+    if (!key) continue;
+    const current = groups.get(key) ?? [];
+    current.push(invoice);
+    groups.set(key, current);
+  }
+
+  const duplicateIds = new Set<string>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const oldestFirst = [...group].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+    for (const invoice of oldestFirst.slice(1)) duplicateIds.add(invoice.id);
+  }
+  return duplicateIds;
+}
+
 async function loadDashboardData(): Promise<DashboardData> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -146,6 +179,7 @@ async function loadDashboardData(): Promise<DashboardData> {
       for (const document of (documentData ?? []) as DocumentRow[]) documents.set(document.id, document);
     }
 
+    const duplicateIds = possibleDuplicateIds(invoices);
     const calculationRows: DashboardInvoice[] = invoices.map((invoice) => ({
       id: invoice.id,
       invoiceType: invoice.invoice_type === "purchase" || invoice.invoice_type === "sale" ? invoice.invoice_type : null,
@@ -160,6 +194,7 @@ async function loadDashboardData(): Promise<DashboardData> {
         : documents.get(invoice.document_id)?.document_type === "invoice"
           ? "invoice"
           : null,
+      possibleDuplicate: duplicateIds.has(invoice.id),
     }));
 
     const traceInvoices: DashboardTraceInvoice[] = invoices.map((invoice) => ({
@@ -204,7 +239,7 @@ export default async function DashboardPage() {
     : data.companyState === "error" || summary.status === "error"
       ? { label: "We konden je dashboard nu niet betrouwbaar berekenen", detail: "Er wordt geen oud of geschat bedrag ingevuld. Probeer de pagina opnieuw." }
       : issueCount > 0
-        ? { label: `${issueCount} ${issueCount === 1 ? "punt" : "punten"} nog nakijken`, detail: "Alleen betrouwbare facturen tellen al mee. Onzekere facturen blijven buiten de totalen." }
+        ? { label: `${issueCount} ${issueCount === 1 ? "punt" : "punten"} nog nakijken`, detail: "Alleen betrouwbare facturen tellen al mee. Onzekere of mogelijk dubbele facturen blijven buiten de totalen." }
         : summary.reliableInvoiceCount > 0
           ? { label: "Je betrouwbare facturen zijn verwerkt", detail: `Het financieel overzicht voor ${summary.period.label} is opnieuw uit de opgeslagen facturen berekend.` }
           : { label: "Nog niet genoeg gegevens voor een financieel overzicht", detail: "Zonder betrouwbare facturen tonen we geen verzonnen bedragen." };
@@ -263,7 +298,7 @@ export default async function DashboardPage() {
           <article className="card">
             <h2>Betrouwbaarheid van dit overzicht</h2>
             <div className="kpi kpi-empty">{summary.reliableInvoiceCount} betrouwbare factuur{summary.reliableInvoiceCount === 1 ? "" : "en"}</div>
-            <p className="muted">{summary.undatedInvoiceCount > 0 ? `${summary.undatedInvoiceCount} factuur${summary.undatedInvoiceCount === 1 ? " heeft" : "en hebben"} nog geen betrouwbare datum en kan daarom nog niet veilig aan deze maand worden toegewezen.` : "Facturen zonder betrouwbare status worden niet stilletjes in de totalen opgenomen."}</p>
+            <p className="muted">{summary.undatedInvoiceCount > 0 ? `${summary.undatedInvoiceCount} factuur${summary.undatedInvoiceCount === 1 ? " heeft" : "en hebben"} nog geen betrouwbare datum en kan daarom nog niet veilig aan deze maand worden toegewezen.` : "Facturen zonder betrouwbare status of met een sterk duplicaatsignaal worden niet stilletjes in de totalen opgenomen."}</p>
           </article>
 
           <article className="card">
