@@ -28,7 +28,10 @@
 .documents-state h2, .documents-state p { margin: 0; }
 .documents-safety { line-height: 1.55; }
 .documents-safety p { margin: 7px 0 0; }
-.documents-limit-note { margin: 0; padding: 14px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .88rem; }
+.documents-pagination { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .88rem; }
+.documents-pagination > div { display: flex; gap: 8px; }
+.documents-pagination .button { min-height: 44px; padding: 9px 12px; }
+.documents-pagination .is-disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
 
 @media (max-width: 900px) {
   .documents-heading { align-items: stretch; flex-direction: column; }
@@ -43,11 +46,14 @@
   .document-actions { justify-content: flex-start; }
   .document-actions .button { flex: 1 1 170px; }
   .document-actions .text-button { min-height: 44px; display: inline-flex; align-items: center; }
+  .documents-pagination { align-items: stretch; flex-direction: column; }
+  .documents-pagination > div { width: 100%; }
+  .documents-pagination .button { flex: 1; justify-content: center; }
 }
 
 @media (max-width: 390px) {
   .document-row { padding: 15px 16px; }
-  .documents-list-heading { padding: 17px 16px; }
+  .documents-list-heading, .documents-pagination { padding: 17px 16px; }
   .document-row-main { align-items: flex-start; }
   .document-copy strong { white-space: normal; }
 }
