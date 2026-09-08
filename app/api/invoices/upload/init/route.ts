@@ -53,25 +53,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Een factuur mag maximaal 10 MB groot zijn." }, { status: 400 });
   }
 
-  const { data: membership, error: membershipError } = await supabase
+  const { data: memberships, error: membershipError } = await supabase
     .from("company_members")
     .select("company_id")
     .eq("user_id", user.id)
     .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+    .limit(2);
 
-  if (membershipError || !membership?.company_id) {
+  if (membershipError) {
+    return NextResponse.json({ error: "We konden je bedrijf nu niet betrouwbaar bepalen. Probeer opnieuw." }, { status: 500 });
+  }
+
+  if (!memberships?.length) {
     return NextResponse.json({ error: "Stel eerst je bedrijf in voordat je een factuur uploadt." }, { status: 409 });
   }
 
+  if (memberships.length > 1) {
+    return NextResponse.json(
+      { error: "Je hebt toegang tot meerdere bedrijven. Kies eerst welk bedrijf je wilt gebruiken voordat je een factuur uploadt." },
+      { status: 409 },
+    );
+  }
+
+  const companyId = memberships[0].company_id as string;
   const documentId = randomUUID();
   const canonicalExtension = extension === "jpeg" ? "jpg" : extension;
-  const storagePath = `company/${membership.company_id}/documents/${documentId}/original.${canonicalExtension}`;
+  const storagePath = `company/${companyId}/documents/${documentId}/original.${canonicalExtension}`;
 
   return NextResponse.json({
     documentId,
-    companyId: membership.company_id,
+    companyId,
     storagePath,
     bucket: "company-documents",
     maxFileSize: MAX_FILE_SIZE,
