@@ -68,27 +68,36 @@ export default async function InvoiceDuplicateAlerts() {
           {duplicateCount === 1 ? "1 factuur lijkt mogelijk dubbel" : `${duplicateCount} facturen lijken mogelijk dubbel`}
         </h2>
         <p className="muted">
-          We vonden dezelfde partij, hetzelfde factuurnummer, dezelfde datum, dezelfde valuta en hetzelfde totaal. Dat kan een dubbele upload zijn. We verwijderen niets automatisch.
+          We vonden dezelfde partij, hetzelfde factuurnummer, dezelfde datum, dezelfde valuta en hetzelfde totaal. Het oudste exemplaar blijft voorlopig de referentie. Later toegevoegde exemplaren tellen niet mee in betrouwbare dashboardtotalen zolang ze mogelijk dubbel zijn. We verwijderen niets automatisch.
         </p>
       </div>
 
       <div className="invoice-card-list">
         {visibleGroups.map((group) => {
-          const first = group[0];
-          if (!first) return null;
+          const oldestFirst = [...group].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+          const referenceInvoice = oldestFirst[0];
+          if (!referenceInvoice) return null;
+
+          const possibleDuplicates = oldestFirst.slice(1);
 
           return (
-            <div className="invoice-read-warning" key={duplicateInvoiceKey(first) ?? first.id}>
-              <strong>{displayCounterparty(first)} · factuur {first.invoice_number}</strong>
-              <span>{group.length} exemplaren hebben dezelfde kerngegevens. Controleer ze voordat je erop vertrouwt in je administratie.</span>
+            <div className="invoice-read-warning" key={duplicateInvoiceKey(referenceInvoice) ?? referenceInvoice.id}>
+              <strong>{displayCounterparty(referenceInvoice)} · factuur {referenceInvoice.invoice_number}</strong>
               <span>
-                {group.slice(0, 3).map((candidate, index) => (
+                Vergelijk eerst de documenten zelf. Als ze werkelijk dezelfde factuur zijn, hoef je het latere exemplaar niet te vertrouwen. Zijn het toch twee verschillende facturen, dan blijft dit een open controlepunt totdat je dat veilig kunt bevestigen.
+              </span>
+              <span>
+                <Link href={`/facturen/${referenceInvoice.id}`}>Open eerdere factuur (referentie)</Link>
+                {possibleDuplicates.slice(0, 2).map((candidate, index) => (
                   <span key={candidate.id}>
-                    {index > 0 ? " · " : ""}
-                    <Link href={`/facturen/${candidate.id}`}>Bekijk exemplaar {index + 1}</Link>
+                    {" · "}
+                    <Link href={`/facturen/${candidate.id}`}>Open mogelijk duplicaat {index + 1}</Link>
                   </span>
                 ))}
               </span>
+              {possibleDuplicates.length > 2 ? (
+                <span>Er zijn nog {possibleDuplicates.length - 2} latere {possibleDuplicates.length - 2 === 1 ? "factuur" : "facturen"} met dezelfde kerngegevens.</span>
+              ) : null}
             </div>
           );
         })}
