@@ -6,6 +6,7 @@ import {
   type DashboardFinancialSummary,
   type DashboardInvoice,
 } from "@/lib/dashboard/financial-summary";
+import { possibleDuplicateInvoiceIds } from "@/lib/invoices/duplicate-detection";
 import FinancialOverview, { type DashboardTraceInvoice, type DashboardVatStatus } from "./financial-overview";
 import "./dashboard.css";
 import LogoutButton from "./logout-button";
@@ -88,39 +89,6 @@ function normalizeVatStatus(value: string | null): DashboardVatStatus {
   return "unknown";
 }
 
-function normalizeDuplicateText(value: string | null) {
-  return value?.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase("nl-BE") ?? "";
-}
-
-function duplicateKey(invoice: InvoiceRow) {
-  const counterparty = normalizeDuplicateText(invoice.supplier_name ?? invoice.customer_name);
-  const invoiceNumber = normalizeDuplicateText(invoice.invoice_number);
-  const currency = normalizeDuplicateText(invoice.currency);
-  const total = invoice.total === null ? Number.NaN : Number(invoice.total);
-
-  if (!counterparty || !invoiceNumber || !invoice.invoice_date || !currency || !Number.isFinite(total)) return null;
-  return [counterparty, invoiceNumber, invoice.invoice_date, total.toFixed(2), currency].join("|");
-}
-
-function possibleDuplicateIds(invoices: InvoiceRow[]) {
-  const groups = new Map<string, InvoiceRow[]>();
-  for (const invoice of invoices) {
-    const key = duplicateKey(invoice);
-    if (!key) continue;
-    const current = groups.get(key) ?? [];
-    current.push(invoice);
-    groups.set(key, current);
-  }
-
-  const duplicateIds = new Set<string>();
-  for (const group of groups.values()) {
-    if (group.length < 2) continue;
-    const oldestFirst = [...group].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-    for (const invoice of oldestFirst.slice(1)) duplicateIds.add(invoice.id);
-  }
-  return duplicateIds;
-}
-
 async function loadDashboardData(): Promise<DashboardData> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -179,7 +147,7 @@ async function loadDashboardData(): Promise<DashboardData> {
       for (const document of (documentData ?? []) as DocumentRow[]) documents.set(document.id, document);
     }
 
-    const duplicateIds = possibleDuplicateIds(invoices);
+    const duplicateIds = possibleDuplicateInvoiceIds(invoices);
     const calculationRows: DashboardInvoice[] = invoices.map((invoice) => ({
       id: invoice.id,
       invoiceType: invoice.invoice_type === "purchase" || invoice.invoice_type === "sale" ? invoice.invoice_type : null,
