@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(_request: Request, { params }: { params: Promise<{ documentId: string }> }) {
   const { documentId } = await params;
   const supabase = await createSupabaseServerClient();
@@ -45,5 +48,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
     return NextResponse.json({ error: "Het originele document kon nu niet veilig geopend worden." }, { status: 500 });
   }
 
-  return NextResponse.redirect(signed.signedUrl, 302);
+  const response = NextResponse.redirect(signed.signedUrl, 302);
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  response.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  return response;
 }
