@@ -13,6 +13,8 @@ type InvoiceCandidate = {
   created_at: string;
 };
 
+const invoicePageSize = 1000;
+
 function normalizeText(value: string | null) {
   return value?.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase("nl-BE") ?? "";
 }
@@ -43,15 +45,41 @@ function displayCounterparty(invoice: InvoiceCandidate) {
 
 export default async function InvoiceDuplicateAlerts() {
   const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
-    .from("invoices")
-    .select("id, company_id, supplier_name, customer_name, invoice_number, invoice_date, total, currency, created_at")
-    .order("created_at", { ascending: false })
-    .limit(100);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from("company_members")
+    .select("company_id")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .limit(2);
+
+  if (membershipError || !memberships?.length || memberships.length !== 1) return null;
+
+  const companyId = memberships[0].company_id as string;
+  const invoices: InvoiceCandidate[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("id, company_id, supplier_name, customer_name, invoice_number, invoice_date, total, currency, created_at")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + invoicePageSize - 1);
+
+    if (error) return null;
+
+    const page = (data ?? []) as InvoiceCandidate[];
+    invoices.push(...page);
+    if (page.length < invoicePageSize) break;
+    offset += invoicePageSize;
+  }
 
   const groups = new Map<string, InvoiceCandidate[]>();
 
-  for (const invoice of (data ?? []) as InvoiceCandidate[]) {
+  for (const invoice of invoices) {
     const key = duplicateKey(invoice);
     if (!key) continue;
 
