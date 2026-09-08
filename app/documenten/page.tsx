@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import DocumentUpload from "./document-upload";
 import "./documenten.css";
 
 export const dynamic = "force-dynamic";
@@ -286,9 +287,9 @@ export default async function DocumentenPage({ searchParams }: { searchParams: P
           <div>
             <div className="eyebrow">Documenten</div>
             <h1>Je originele documenten op één veilige plek.</h1>
-            <p className="muted">Facturen die je al uploadde verschijnen hier automatisch. Je hoeft niets opnieuw te uploaden of zelf in mappen te zetten.</p>
+            <p className="muted">Facturen verschijnen hier automatisch. Contracten, attesten en andere bedrijfsdocumenten kun je nu ook rechtstreeks toevoegen zonder zelf mappen te beheren.</p>
           </div>
-          <Link className="button" href="/facturen">Factuur toevoegen</Link>
+          <Link className="button secondary" href="/facturen">Naar facturen</Link>
         </header>
 
         {stateMessage ? (
@@ -299,6 +300,8 @@ export default async function DocumentenPage({ searchParams }: { searchParams: P
           </section>
         ) : (
           <>
+            <DocumentUpload />
+
             {data.archiveTotal > 0 ? (
               <section className="card documents-search-card" aria-labelledby="documents-search-title">
                 <form className="documents-search" action="/documenten" method="get">
@@ -323,7 +326,7 @@ export default async function DocumentenPage({ searchParams }: { searchParams: P
 
                 <section className="card documents-list-card" aria-labelledby="documents-list-title">
                   <div className="documents-list-heading">
-                    <div><h2 id="documents-list-title">{data.query ? "Zoekresultaten" : "Alle opgeslagen documenten"}</h2><p className="muted">Nieuwste eerst. Het originele bestand blijft apart van wat AI eruit leest.</p></div>
+                    <div><h2 id="documents-list-title">{data.query ? "Zoekresultaten" : "Alle opgeslagen documenten"}</h2><p className="muted">Nieuwste eerst. Het originele bestand blijft apart van wat later uit het document wordt gelezen.</p></div>
                   </div>
                   <div className="documents-list">
                     {data.documents.map((document) => {
@@ -370,16 +373,16 @@ export default async function DocumentenPage({ searchParams }: { searchParams: P
             ) : (
               <section className="card documents-state">
                 <h2>Nog geen documenten opgeslagen</h2>
-                <p className="muted">Upload je eerste factuur. Het originele bestand verschijnt daarna automatisch ook hier.</p>
-                <Link className="button" href="/facturen">Eerste factuur toevoegen</Link>
+                <p className="muted">Voeg hierboven een contract, attest, brief of ander bedrijfsdocument toe. Facturen kun je via Facturen uploaden en verschijnen daarna automatisch ook hier.</p>
+                <Link className="button secondary" href="/facturen">Factuur toevoegen</Link>
               </section>
             )}
           </>
         )}
 
         <section className="card documents-safety">
-          <strong>Wat deze kluis nu wel en niet doet</strong>
-          <p className="muted">Je bestaande originele facturen zijn hier terug te vinden zonder dubbele upload. Zoeken gebruikt alleen gegevens die al in je administratie zijn opgeslagen. Andere documenttypes, automatische documentclassificatie en algemene documentupload bouwen we pas wanneer die flow even veilig en controleerbaar is als de huidige factuurupload.</p>
+          <strong>Wat deze kluis nu veilig doet</strong>
+          <p className="muted">Originele bestanden blijven privé en worden niet overschreven. Een algemene upload krijgt bewust geen definitief documenttype zolang dat niet betrouwbaar is vastgesteld. Automatische classificatie voegen we pas toe wanneer twijfel zichtbaar en controleerbaar blijft.</p>
         </section>
       </main>
 
