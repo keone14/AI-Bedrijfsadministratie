@@ -7,7 +7,7 @@ import "./facturen.css";
 const nav = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Facturen", href: "/facturen", active: true },
-  { label: "Documenten", href: null },
+  { label: "Documenten", href: "/documenten" },
   { label: "Deadlines", href: null },
   { label: "Assistent", href: null },
   { label: "Bedrijf", href: "/onboarding" },
@@ -116,7 +116,7 @@ export default function FacturenPage() {
       </main>
 
       <nav className="mobile-nav" aria-label="Mobiele navigatie">
-        <Link href="/dashboard">Home</Link><Link className="active" href="/facturen">Facturen</Link><Link href="/onboarding">Bedrijf</Link><span aria-disabled="true">Deadlines</span><span aria-disabled="true">Meer</span>
+        <Link href="/dashboard">Home</Link><Link className="active" href="/facturen">Facturen</Link><Link href="/documenten">Documenten</Link><Link href="/onboarding">Bedrijf</Link><span aria-disabled="true">Deadlines</span>
       </nav>
     </div>
   );
