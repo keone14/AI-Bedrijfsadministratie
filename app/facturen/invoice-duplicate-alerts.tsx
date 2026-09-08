@@ -14,6 +14,7 @@ type InvoiceCandidate = {
 };
 
 const invoicePageSize = 1000;
+const visibleDuplicateGroupLimit = 5;
 
 function normalizeText(value: string | null) {
   return value?.normalize("NFKC").replace(/\s+/g, " ").trim().toLocaleLowerCase("nl-BE") ?? "";
@@ -90,12 +91,13 @@ export default async function InvoiceDuplicateAlerts() {
 
   const duplicateGroups = Array.from(groups.values())
     .filter((group) => group.length > 1)
-    .sort((a, b) => Date.parse(b[0]?.created_at ?? "") - Date.parse(a[0]?.created_at ?? ""))
-    .slice(0, 5);
+    .sort((a, b) => Date.parse(b[0]?.created_at ?? "") - Date.parse(a[0]?.created_at ?? ""));
 
   if (!duplicateGroups.length) return null;
 
   const duplicateCount = duplicateGroups.reduce((count, group) => count + group.length - 1, 0);
+  const visibleGroups = duplicateGroups.slice(0, visibleDuplicateGroupLimit);
+  const hiddenGroupCount = duplicateGroups.length - visibleGroups.length;
 
   return (
     <section className="card invoice-safety-card" aria-labelledby="duplicate-alert-title">
@@ -110,7 +112,7 @@ export default async function InvoiceDuplicateAlerts() {
       </div>
 
       <div className="invoice-card-list">
-        {duplicateGroups.map((group) => {
+        {visibleGroups.map((group) => {
           const first = group[0];
           if (!first) return null;
 
@@ -130,6 +132,10 @@ export default async function InvoiceDuplicateAlerts() {
           );
         })}
       </div>
+
+      {hiddenGroupCount > 0 ? (
+        <p className="muted">Er zijn nog {hiddenGroupCount} andere {hiddenGroupCount === 1 ? "groep" : "groepen"} met mogelijke duplicaten. De teller hierboven bevat ze al.</p>
+      ) : null}
     </section>
   );
 }
