@@ -17,7 +17,7 @@ const nav = [
   { label: "Dashboard", href: "/dashboard", active: true },
   { label: "Facturen", href: "/facturen" },
   { label: "Documenten", href: "/documenten" },
-  { label: "Deadlines", href: null },
+  { label: "Deadlines", href: "/deadlines" },
   { label: "Assistent", href: null },
   { label: "Bedrijf", href: "/onboarding" },
 ];
@@ -270,6 +270,7 @@ export default async function DashboardPage() {
               <p className="muted">Er staat vanuit de factuurcontrole voor deze maand niets open dat we hier kunstmatig als taak moeten tonen.</p>
             )}
             <Link className="button secondary" href="/facturen">Facturen controleren</Link>
+            <Link className="text-button" href="/deadlines">Bekijk deadlines en vervaldata</Link>
           </article>
 
           <article className="card">
@@ -298,7 +299,7 @@ export default async function DashboardPage() {
       </main>
 
       <nav className="mobile-nav" aria-label="Mobiele navigatie">
-        <Link className="active" href="/dashboard">Home</Link><Link href="/facturen">Facturen</Link><Link href="/documenten">Documenten</Link><Link href="/onboarding">Bedrijf</Link><span aria-disabled="true">Deadlines</span>
+        <Link className="active" href="/dashboard">Home</Link><Link href="/facturen">Facturen</Link><Link href="/documenten">Documenten</Link><Link href="/deadlines">Deadlines</Link><Link href="/onboarding">Bedrijf</Link>
       </nav>
     </div>
   );
