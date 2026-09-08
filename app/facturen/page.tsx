@@ -86,17 +86,27 @@ export default function FacturenPage() {
 
         <section className="card invoice-compliance-card" aria-labelledby="einvoice-title">
           <div className="eyebrow">Belangrijk sinds 1 januari 2026</div>
-          <h2 id="einvoice-title">Een PDF uploaden is niet hetzelfde als een verplichte B2B e-factuur.</h2>
-          <p>Voor quasi alle facturen tussen Belgische btw-plichtige ondernemingen is sinds 1 januari 2026 een <strong>gestructureerde elektronische factuur</strong> nodig. Een gewone PDF via e-mail volstaat daarvoor niet.</p>
+          <h2 id="einvoice-title">Een PDF uploaden is niet hetzelfde als voldoen aan de B2B e-facturatieplicht.</h2>
+          <p>Voor B2B-handelingen tussen Belgische btw-plichtige ondernemingen is sinds 1 januari 2026 in principe een <strong>gestructureerde elektronische factuur</strong> nodig. Een gewone PDF via e-mail volstaat daarvoor normaal niet.</p>
           <details className="help-details">
             <summary>Wat betekent dit voor mij?</summary>
             <div className="help-details-body">
-              <div><strong>Wat is een gestructureerde e-factuur?</strong><p>Dat is een factuur in een vast computerleesbaar formaat zodat softwaresystemen de gegevens rechtstreeks kunnen uitwisselen. In België gebeurt dit in principe via Peppol.</p></div>
-              <div><strong>Waarom kan ik dan PDF&apos;s uploaden?</strong><p>PDF, JPG en PNG blijven nuttig om bestaande documenten te bewaren en administratief te verwerken. Zo&apos;n upload bewijst op zichzelf niet dat je aan de B2B e-facturatieplicht hebt voldaan.</p></div>
-              <div><strong>Geldt dit voor elke factuur?</strong><p>Nee. Er zijn uitzonderingen en de verplichting verschilt bijvoorbeeld bij particuliere klanten of bepaalde andere situaties. Daarom mag de app nooit alleen op basis van het bestandstype zeggen dat je wettelijk in orde bent.</p></div>
+              <div><strong>Wat is een gestructureerde e-factuur?</strong><p>Dat is een factuur in een vast computerleesbaar formaat zodat softwaresystemen de gegevens rechtstreeks kunnen uitwisselen. In België moet je zulke facturen in principe via het Peppol-netwerk kunnen versturen en ontvangen.</p></div>
+              <div><strong>Waarom kan ik dan PDF&apos;s uploaden?</strong><p>PDF, JPG en PNG blijven nuttig om documenten te bewaren en administratief te verwerken. Zo&apos;n upload bewijst op zichzelf niet dat de wettelijk vereiste gestructureerde factuur correct werd verstuurd of ontvangen.</p></div>
+              <div><strong>Geldt dit altijd?</strong><p>Nee. Er zijn beperkte uitzonderingen en er bestaat onder voorwaarden een terugvalmogelijkheid bij technische onmogelijkheid. Ook B2C en bepaalde internationale situaties vallen anders. Daarom beslist deze app nooit alleen op basis van een PDF dat je wettelijk in orde bent.</p></div>
             </div>
           </details>
-          <p className="source-note">Bron: officiële Belgische e-facturatie-informatie. Regel gecontroleerd op 2 september 2026.</p>
+          <div>
+            <a
+              className="text-button"
+              href="https://efactuur.belgium.be/nl/article/voor-wie-wordt-e-facturatie-verplicht"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Controleer officieel of dit voor jou geldt
+            </a>
+          </div>
+          <p className="source-note">Officiële bron: e-factuur.belgium.be. Regel opnieuw gecontroleerd op 9 september 2026.</p>
         </section>
 
         <section className="invoice-learning-section" aria-labelledby="terms-title">
