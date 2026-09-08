@@ -125,42 +125,25 @@ export async function POST(request: Request) {
   }
 
   const sha256 = createHash("sha256").update(buffer).digest("hex");
-  const { data: existing, error: duplicateCheckError } = await supabase
-    .from("documents")
-    .select("id")
-    .eq("company_id", companyId)
-    .eq("file_hash", sha256)
-    .limit(1);
-
-  if (duplicateCheckError) {
-    await discard(supabase, storagePath);
-    return NextResponse.json({ error: "We konden niet veilig controleren of dit document al bestaat." }, { status: 500 });
-  }
-
-  if (existing?.length) {
-    await discard(supabase, storagePath);
-    return NextResponse.json({ error: "Dit exacte document is al opgeslagen. Je hoeft het niet opnieuw toe te voegen." }, { status: 409 });
-  }
-
   const displayName = safeDisplayName(originalFilename);
-  const { error: insertError } = await supabase.from("documents").insert({
-    id: documentId,
-    company_id: companyId,
-    uploaded_by: user.id,
-    original_filename: originalFilename.slice(0, 500),
-    display_name: displayName,
-    mime_type: detectedMime,
-    storage_path: storagePath,
-    file_hash: sha256,
-    document_type: null,
-    document_type_confidence: null,
-    processing_status: "uploaded",
-    review_status: "pending",
+  const { error: registerError } = await supabase.rpc("register_validated_document_upload", {
+    target_company_id: companyId,
+    target_document_id: documentId,
+    target_storage_path: storagePath,
+    original_name: originalFilename.slice(0, 500),
+    safe_display_name: displayName,
+    detected_mime: detectedMime,
+    sha256_hash: sha256,
+    validated_size_bytes: buffer.byteLength,
   });
 
-  if (insertError) {
+  if (registerError) {
     await discard(supabase, storagePath);
-    return NextResponse.json({ error: "Het document kon niet betrouwbaar worden geregistreerd." }, { status: 400 });
+    const duplicate = registerError.message?.toLowerCase().includes("duplicate document");
+    return NextResponse.json(
+      { error: duplicate ? "Dit exacte document is al opgeslagen. Je hoeft het niet opnieuw toe te voegen." : "Het document kon niet betrouwbaar worden geregistreerd." },
+      { status: duplicate ? 409 : 400 },
+    );
   }
 
   return NextResponse.json({ documentId, displayName, mimeType: detectedMime, status: "uploaded" });
