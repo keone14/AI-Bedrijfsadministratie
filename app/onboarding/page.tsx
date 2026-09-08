@@ -104,6 +104,7 @@ export default function OnboardingPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [loadingSavedData, setLoadingSavedData] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [companyContextBlocked, setCompanyContextBlocked] = useState(false);
 
   const unresolved = useMemo(
     () => Object.entries(form).filter(([key, value]) => {
@@ -128,16 +129,24 @@ export default function OnboardingPage() {
           return;
         }
 
-        const { data: membership, error: membershipError } = await supabase
+        const { data: memberships, error: membershipError } = await supabase
           .from("company_members")
           .select("company_id, created_at")
           .eq("user_id", userData.user.id)
           .eq("status", "active")
           .order("created_at", { ascending: true })
-          .limit(1)
-          .maybeSingle();
+          .limit(2);
 
         if (membershipError) throw membershipError;
+        if ((memberships?.length ?? 0) > 1) {
+          if (!cancelled) {
+            setCompanyContextBlocked(true);
+            setNotice("Je hebt toegang tot meerdere bedrijven. We kiezen nooit zelf welk bedrijf je wilt aanpassen. Deze onboarding blijft daarom geblokkeerd tot je expliciet een bedrijf kunt kiezen.");
+          }
+          return;
+        }
+
+        const membership = memberships?.[0] ?? null;
         if (!membership?.company_id) return;
 
         const { data: company, error: companyError } = await supabase
@@ -186,6 +195,10 @@ export default function OnboardingPage() {
   }
 
   function next() {
+    if (companyContextBlocked) {
+      setNotice("Je hebt toegang tot meerdere bedrijven. We kiezen nooit zelf welk bedrijf je wilt aanpassen. Er is niets gewijzigd.");
+      return;
+    }
     if (step === 1 && !form.companyName.trim()) {
       setNotice("Vul een naam in waarmee jij je bedrijf herkent. De officiële naam kun je later nog controleren.");
       return;
@@ -195,7 +208,7 @@ export default function OnboardingPage() {
   }
 
   async function saveOnboarding() {
-    if (saving || loadingSavedData) return;
+    if (saving || loadingSavedData || companyContextBlocked) return;
 
     const companyName = form.companyName.trim();
     if (!companyName) {
@@ -222,17 +235,22 @@ export default function OnboardingPage() {
         return;
       }
 
-      const { data: membership, error: membershipError } = await supabase
+      const { data: memberships, error: membershipError } = await supabase
         .from("company_members")
         .select("company_id, created_at")
         .eq("user_id", userData.user.id)
         .eq("status", "active")
         .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+        .limit(2);
 
       if (membershipError) throw membershipError;
+      if ((memberships?.length ?? 0) > 1) {
+        setCompanyContextBlocked(true);
+        setNotice("Opslaan is gestopt omdat je toegang hebt tot meerdere bedrijven. We kiezen nooit zelf welk bedrijf moet worden aangepast, dus er is niets gewijzigd.");
+        return;
+      }
 
+      const membership = memberships?.[0] ?? null;
       let companyId = membership?.company_id ?? null;
       if (!companyId) {
         const { data: createdCompanyId, error: createError } = await supabase.rpc("create_company_with_owner", {
@@ -315,7 +333,10 @@ export default function OnboardingPage() {
               <strong>Je hoeft nooit te gokken.</strong>
               <p className="muted">Weet je iets niet? Kies dan veilig voor “Ik weet het niet”. Belangrijke fiscale of juridische informatie behandelen we pas als bevestigd wanneer daar voldoende bewijs voor is.</p>
             </div>
-            <button className="button" type="button" onClick={next} disabled={loadingSavedData}>{loadingSavedData ? "Opgeslagen gegevens laden…" : "Mijn bedrijf instellen"}</button>
+            {companyContextBlocked ? (
+              <div className="notice" role="alert">Je hebt toegang tot meerdere bedrijven. Deze onboarding wijzigt niets zolang je niet expliciet kunt kiezen welk bedrijf bedoeld is.</div>
+            ) : null}
+            <button className="button" type="button" onClick={next} disabled={loadingSavedData || companyContextBlocked}>{loadingSavedData ? "Opgeslagen gegevens laden…" : companyContextBlocked ? "Kies eerst een bedrijf" : "Mijn bedrijf instellen"}</button>
           </section>
         ) : null}
 
@@ -543,7 +564,7 @@ export default function OnboardingPage() {
                 </div>
               ))}
             </div>
-            <button className="button" type="button" onClick={() => void saveOnboarding()} disabled={saving || loadingSavedData} aria-busy={saving}>{saving ? "Veilig opslaan…" : "Opslaan en dashboard openen"}</button>
+            <button className="button" type="button" onClick={() => void saveOnboarding()} disabled={saving || loadingSavedData || companyContextBlocked} aria-busy={saving}>{saving ? "Veilig opslaan…" : "Opslaan en dashboard openen"}</button>
           </section>
         ) : null}
 
