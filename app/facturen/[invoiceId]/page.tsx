@@ -6,6 +6,7 @@ import {
   possibleDuplicateInvoiceIds,
   type DuplicateInvoiceCandidate,
 } from "@/lib/invoices/duplicate-detection";
+import DuplicateResolutionButton from "./duplicate-resolution-button";
 import "./source-detail.css";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ type InvoiceSourceRow = DuplicateInvoiceCandidate & {
   description: string | null;
   invoice_type: string | null;
   review_status: string;
+  duplicate_resolution: string | null;
 };
 
 type DocumentSourceRow = {
@@ -65,7 +67,7 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
 
   const { data: invoiceData, error: invoiceError } = await supabase
     .from("invoices")
-    .select("id, company_id, document_id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, review_status, created_at")
+    .select("id, company_id, document_id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, review_status, duplicate_resolution, created_at")
     .eq("id", invoiceId)
     .in("company_id", companyIds)
     .maybeSingle();
@@ -88,7 +90,7 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
   while (true) {
     const { data, error } = await supabase
       .from("invoices")
-      .select("id, company_id, supplier_name, customer_name, invoice_number, invoice_date, total, currency, created_at")
+      .select("id, company_id, supplier_name, customer_name, invoice_number, invoice_date, total, currency, duplicate_resolution, created_at")
       .eq("company_id", invoice.company_id)
       .order("created_at", { ascending: true })
       .range(offset, offset + invoicePageSize - 1);
@@ -113,6 +115,7 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
     ? [...duplicateGroup].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))[0] ?? null
     : null;
   const duplicateOthers = duplicateGroup?.filter((candidate) => candidate.id !== invoice.id) ?? [];
+  const confirmedDistinct = invoice.duplicate_resolution === "confirmed_distinct";
 
   const title = invoice.supplier_name ?? invoice.customer_name ?? document?.display_name ?? document?.original_filename ?? "Factuur";
   const statusIsOk = !possibleDuplicate && (invoice.review_status === "confirmed" || invoice.review_status === "auto_verified");
@@ -139,11 +142,19 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
             <strong>Deze factuur lijkt mogelijk dubbel.</strong>
             <p>We vonden dezelfde partij, hetzelfde factuurnummer, dezelfde datum, dezelfde valuta en hetzelfde totaal bij een oudere upload. Daarom telt deze versie voorlopig niet mee in je dashboard. We verwijderen niets automatisch.</p>
             <p><Link className="text-button" href={`/facturen/${duplicateOriginal.id}`}>Bekijk de eerdere factuur</Link></p>
+            <p>Vergelijk de originele documenten eerst. Alleen als dit werkelijk een andere factuur is, bevestig je dat hieronder. Deze keuze verwijdert alleen de duplicaatblokkering. Een factuur die verder nog niet betrouwbaar bevestigd is, telt daardoor niet automatisch mee.</p>
+            <DuplicateResolutionButton invoiceId={invoice.id} distinct />
+          </div>
+        ) : confirmedDistinct ? (
+          <div className="invoice-source-note" role="status">
+            <strong>Door jou bevestigd als aparte factuur.</strong>
+            <p>Je hebt eerder bevestigd dat dit geen dubbele upload is. Daarom blokkeert het duplicaatsignaal deze factuur niet meer. De gewone factuurcontrole blijft wel van toepassing.</p>
+            <DuplicateResolutionButton invoiceId={invoice.id} distinct={false} />
           </div>
         ) : duplicateOthers.length > 0 ? (
           <div className="invoice-source-note is-warning" role="status">
             <strong>We vonden ook {duplicateOthers.length === 1 ? "een latere factuur" : `${duplicateOthers.length} latere facturen`} met dezelfde kerngegevens.</strong>
-            <p>Deze oudere versie blijft voorlopig de referentie. De latere mogelijke duplicaten tellen niet mee totdat deze situatie veilig kan worden afgehandeld.</p>
+            <p>Deze oudere versie blijft voorlopig de referentie. Open het latere mogelijke duplicaat om de documenten te vergelijken en, alleen als het echt een aparte factuur is, dat daar expliciet te bevestigen.</p>
             <p><Link className="text-button" href={`/facturen/${duplicateOthers[0].id}`}>Bekijk {duplicateOthers.length === 1 ? "de andere factuur" : "een mogelijk duplicaat"}</Link></p>
           </div>
         ) : null}
