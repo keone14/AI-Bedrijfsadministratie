@@ -64,7 +64,7 @@ export default function InvoiceUpload() {
       const { error: storageError } = await supabase.storage
         .from(init.bucket)
         .upload(init.storagePath, file, {
-          cacheControl: "3600",
+          cacheControl: "0",
           upsert: false,
           contentType: file.type || undefined,
         });
