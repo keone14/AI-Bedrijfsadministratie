@@ -5,6 +5,7 @@ import "./documenten.css";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 50;
 const nav = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Facturen", href: "/facturen" },
@@ -35,6 +36,15 @@ type InvoiceLinkRow = {
 
 type PageState = "ready" | "no_company" | "multiple_companies" | "error";
 
+type DocumentsResult = {
+  state: PageState;
+  documents: DocumentRow[];
+  invoiceLinks: Map<string, InvoiceLinkRow>;
+  total: number;
+  page: number;
+  totalPages: number;
+};
+
 function documentTypeLabel(type: string | null) {
   if (type === "invoice") return "Factuur";
   if (type === "credit_note") return "Creditnota";
@@ -57,7 +67,15 @@ function formatDate(value: string | null, fallback: string) {
   return new Intl.DateTimeFormat("nl-BE", { day: "2-digit", month: "2-digit", year: "numeric" }).format(date);
 }
 
-async function loadDocuments(): Promise<{ state: PageState; documents: DocumentRow[]; invoiceLinks: Map<string, InvoiceLinkRow> }> {
+function safePage(value: string | string[] | undefined) {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = Number.parseInt(raw ?? "1", 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 1;
+}
+
+async function loadDocuments(requestedPage: number): Promise<DocumentsResult> {
+  const empty = (state: PageState): DocumentsResult => ({ state, documents: [], invoiceLinks: new Map(), total: 0, page: 1, totalPages: 1 });
+
   try {
     const supabase = await createSupabaseServerClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -70,45 +88,55 @@ async function loadDocuments(): Promise<{ state: PageState; documents: DocumentR
       .eq("status", "active")
       .limit(2);
 
-    if (membershipError) return { state: "error", documents: [], invoiceLinks: new Map() };
-    if (!memberships?.length) return { state: "no_company", documents: [], invoiceLinks: new Map() };
-    if (memberships.length > 1) return { state: "multiple_companies", documents: [], invoiceLinks: new Map() };
+    if (membershipError) return empty("error");
+    if (!memberships?.length) return empty("no_company");
+    if (memberships.length > 1) return empty("multiple_companies");
 
     const companyId = memberships[0].company_id as string;
+    const { count, error: countError } = await supabase
+      .from("documents")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId);
+
+    if (countError) return empty("error");
+
+    const total = count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const page = Math.min(requestedPage, totalPages);
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     const { data: documentData, error: documentError } = await supabase
       .from("documents")
       .select("id, original_filename, display_name, document_type, processing_status, review_status, detected_date, created_at")
       .eq("company_id", companyId)
       .order("created_at", { ascending: false })
-      .limit(500);
+      .range(from, to);
 
-    if (documentError) return { state: "error", documents: [], invoiceLinks: new Map() };
+    if (documentError) return empty("error");
     const documents = (documentData ?? []) as DocumentRow[];
     const documentIds = documents.map((document) => document.id);
     const invoiceLinks = new Map<string, InvoiceLinkRow>();
 
     if (documentIds.length) {
-      const batchSize = 200;
-      for (let index = 0; index < documentIds.length; index += batchSize) {
-        const batch = documentIds.slice(index, index + batchSize);
-        const { data: invoiceData, error: invoiceError } = await supabase
-          .from("invoices")
-          .select("id, document_id, supplier_name, customer_name, invoice_number")
-          .eq("company_id", companyId)
-          .in("document_id", batch);
-        if (invoiceError) return { state: "error", documents: [], invoiceLinks: new Map() };
-        for (const invoice of (invoiceData ?? []) as InvoiceLinkRow[]) invoiceLinks.set(invoice.document_id, invoice);
-      }
+      const { data: invoiceData, error: invoiceError } = await supabase
+        .from("invoices")
+        .select("id, document_id, supplier_name, customer_name, invoice_number")
+        .eq("company_id", companyId)
+        .in("document_id", documentIds);
+      if (invoiceError) return empty("error");
+      for (const invoice of (invoiceData ?? []) as InvoiceLinkRow[]) invoiceLinks.set(invoice.document_id, invoice);
     }
 
-    return { state: "ready", documents, invoiceLinks };
+    return { state: "ready", documents, invoiceLinks, total, page, totalPages };
   } catch {
-    return { state: "error", documents: [], invoiceLinks: new Map() };
+    return empty("error");
   }
 }
 
-export default async function DocumentenPage() {
-  const data = await loadDocuments();
+export default async function DocumentenPage({ searchParams }: { searchParams: Promise<{ page?: string | string[] }> }) {
+  const params = await searchParams;
+  const data = await loadDocuments(safePage(params.page));
 
   const stateMessage = data.state === "multiple_companies"
     ? { title: "Kies eerst welk bedrijf je wilt bekijken", text: "We tonen nooit documenten van meerdere bedrijven door elkaar. Ga naar Bedrijf om je bedrijfscontext te controleren." }
@@ -150,9 +178,9 @@ export default async function DocumentenPage() {
         ) : data.documents.length ? (
           <>
             <section className="documents-summary" aria-label="Documentoverzicht">
-              <div className="card"><span className="documents-summary-label">Opgeslagen</span><strong>{data.documents.length}</strong><p className="muted">originele documenten</p></div>
-              <div className="card"><span className="documents-summary-label">Facturen</span><strong>{data.documents.filter((document) => document.document_type === "invoice").length}</strong><p className="muted">automatisch terug te vinden</p></div>
-              <div className="card"><span className="documents-summary-label">Nakijken</span><strong>{data.documents.filter((document) => document.review_status === "needs_review" || document.processing_status === "failed").length}</strong><p className="muted">documenten met aandacht</p></div>
+              <div className="card"><span className="documents-summary-label">Opgeslagen</span><strong>{data.total}</strong><p className="muted">originele documenten</p></div>
+              <div className="card"><span className="documents-summary-label">Deze pagina</span><strong>{data.documents.length}</strong><p className="muted">van maximaal {PAGE_SIZE} documenten</p></div>
+              <div className="card"><span className="documents-summary-label">Pagina</span><strong>{data.page}</strong><p className="muted">van {data.totalPages}</p></div>
             </section>
 
             <section className="card documents-list-card" aria-labelledby="documents-list-title">
@@ -184,7 +212,15 @@ export default async function DocumentenPage() {
                   );
                 })}
               </div>
-              {data.documents.length === 500 ? <p className="documents-limit-note">Je hebt minstens 500 documenten. Deze eerste versie toont de 500 nieuwste zodat de pagina snel blijft. Er wordt niets verwijderd.</p> : null}
+              {data.totalPages > 1 ? (
+                <nav className="documents-pagination" aria-label="Documentpagina's">
+                  <span>Documenten {((data.page - 1) * PAGE_SIZE) + 1}-{Math.min(data.page * PAGE_SIZE, data.total)} van {data.total}</span>
+                  <div>
+                    {data.page > 1 ? <Link className="button secondary" href={`/documenten?page=${data.page - 1}`}>Vorige</Link> : <span className="button secondary is-disabled" aria-disabled="true">Vorige</span>}
+                    {data.page < data.totalPages ? <Link className="button secondary" href={`/documenten?page=${data.page + 1}`}>Volgende</Link> : <span className="button secondary is-disabled" aria-disabled="true">Volgende</span>}
+                  </div>
+                </nav>
+              ) : null}
             </section>
           </>
         ) : (
