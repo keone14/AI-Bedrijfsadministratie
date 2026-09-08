@@ -38,6 +38,7 @@ type InvoiceRow = {
   vat_amount: number | null;
   total: number | null;
   review_status: string;
+  duplicate_resolution: string | null;
   created_at: string;
   possibleDuplicate?: boolean;
 };
@@ -129,7 +130,7 @@ async function loadDashboardData(): Promise<DashboardData> {
     while (true) {
       const { data: invoiceData, error: invoiceError } = await supabase
         .from("invoices")
-        .select("id, document_id, supplier_name, customer_name, invoice_number, invoice_type, invoice_date, currency, subtotal, vat_amount, total, review_status, created_at")
+        .select("id, document_id, supplier_name, customer_name, invoice_number, invoice_type, invoice_date, currency, subtotal, vat_amount, total, review_status, duplicate_resolution, created_at")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false })
         .range(offset, offset + invoicePageSize - 1);
