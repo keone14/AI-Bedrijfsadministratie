@@ -13,6 +13,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Block obvious committed secrets
+        shell: bash
+        run: |
+          if git grep -nEI -e '-----BEGIN [A-Z ]*PRIVATE KEY-----|sk-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9_-]{20,}|sb_secret_[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}' -- . ':(exclude).env.example'; then
+            echo 'Potential secret detected in a tracked file. Remove it and rotate the credential before continuing.'
+            exit 1
+          fi
+          echo 'No obvious committed secret pattern detected.'
       - run: npm install
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
