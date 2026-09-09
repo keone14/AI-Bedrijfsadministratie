@@ -43,11 +43,29 @@ function formatMoney(value: number | null, currency: string | null) {
   }
 }
 
-function statusLabel(status: string, possibleDuplicate: boolean) {
+function statusLabel(status: string, possibleDuplicate: boolean, duplicateLookupFailed: boolean) {
+  if (duplicateLookupFailed) return "Duplicaatcontrole niet beschikbaar - eerst nakijken";
   if (possibleDuplicate) return "Mogelijk dubbel - eerst nakijken";
   if (status === "confirmed") return "Door jou bevestigd";
   if (status === "auto_verified") return "Automatisch in orde";
   return "Nog niet betrouwbaar bevestigd";
+}
+
+function InvoiceLoadError({ title, text }: { title: string; text: string }) {
+  return (
+    <main className="invoice-source-page">
+      <div className="invoice-source-topbar">
+        <Link className="text-button" href="/facturen">← Terug naar facturen</Link>
+      </div>
+      <section className="card invoice-source-card" role="alert">
+        <div className="eyebrow">Factuur</div>
+        <h1>{title}</h1>
+        <p className="muted">{text}</p>
+        <p>Dit betekent niet dat de factuur verdwenen is. We tonen liever geen onbetrouwbare conclusie.</p>
+        <Link className="button secondary" href="/facturen">Facturen opnieuw openen</Link>
+      </section>
+    </main>
+  );
 }
 
 export default async function InvoiceSourcePage({ params }: { params: Promise<{ invoiceId: string }> }) {
@@ -62,7 +80,10 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
     .eq("user_id", user.id)
     .eq("status", "active");
 
-  if (membershipError || !memberships?.length) notFound();
+  if (membershipError) {
+    return <InvoiceLoadError title="We konden je bedrijfscontext niet betrouwbaar controleren" text="Probeer de facturen opnieuw te openen voordat je op deze gegevens vertrouwt." />;
+  }
+  if (!memberships?.length) notFound();
   const companyIds = memberships.map((membership) => membership.company_id as string);
 
   const { data: invoiceData, error: invoiceError } = await supabase
@@ -72,16 +93,19 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
     .in("company_id", companyIds)
     .maybeSingle();
 
-  if (invoiceError || !invoiceData) notFound();
+  if (invoiceError) {
+    return <InvoiceLoadError title="We konden deze factuur nu niet betrouwbaar laden" text="Er ging iets mis bij het ophalen van de opgeslagen factuurgegevens." />;
+  }
+  if (!invoiceData) notFound();
   const invoice = invoiceData as InvoiceSourceRow;
 
-  const { data: documentData } = await supabase
+  const { data: documentData, error: documentError } = await supabase
     .from("documents")
     .select("id, company_id, display_name, original_filename, document_type")
     .eq("id", invoice.document_id)
     .eq("company_id", invoice.company_id)
     .maybeSingle();
-  const document = (documentData ?? null) as DocumentSourceRow | null;
+  const document = documentError ? null : (documentData ?? null) as DocumentSourceRow | null;
 
   const duplicateCandidates: DuplicateInvoiceCandidate[] = [];
   let offset = 0;
@@ -118,7 +142,7 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
   const confirmedDistinct = invoice.duplicate_resolution === "confirmed_distinct";
 
   const title = invoice.supplier_name ?? invoice.customer_name ?? document?.display_name ?? document?.original_filename ?? "Factuur";
-  const statusIsOk = !possibleDuplicate && (invoice.review_status === "confirmed" || invoice.review_status === "auto_verified");
+  const statusIsOk = !duplicateLookupFailed && !possibleDuplicate && (invoice.review_status === "confirmed" || invoice.review_status === "auto_verified");
 
   return (
     <main className="invoice-source-page">
@@ -134,8 +158,25 @@ export default async function InvoiceSourcePage({ params }: { params: Promise<{ 
             <h1 id="invoice-source-title">{title}</h1>
             <p className="muted">Hier zie je de opgeslagen gegevens van deze factuur. Alleen facturen die betrouwbaar genoeg zijn, tellen mee in het dashboard.</p>
           </div>
-          <span className={`invoice-source-status ${statusIsOk ? "is-ok" : "is-review"}`}>{statusLabel(invoice.review_status, possibleDuplicate)}</span>
+          <span className={`invoice-source-status ${statusIsOk ? "is-ok" : "is-review"}`}>{statusLabel(invoice.review_status, possibleDuplicate, duplicateLookupFailed)}</span>
         </div>
+
+        <p><a className="button secondary" href={`/api/documents/${invoice.document_id}/open`} target="_blank" rel="noreferrer">Open origineel document</a></p>
+
+        {duplicateLookupFailed ? (
+          <div className="invoice-source-note is-warning" role="alert">
+            <strong>We konden mogelijke dubbele facturen nu niet betrouwbaar controleren.</strong>
+            <p>Ga er daarom niet van uit dat deze factuur uniek is. De opgeslagen factuurgegevens blijven zichtbaar, maar de status wordt bewust niet als volledig in orde getoond zolang deze controle technisch niet gelukt is.</p>
+            <p>Open het originele document en probeer deze pagina later opnieuw voordat je een mogelijke dubbele upload uitsluit.</p>
+          </div>
+        ) : null}
+
+        {documentError ? (
+          <div className="invoice-source-note is-warning" role="status">
+            <strong>De extra documentgegevens konden nu niet betrouwbaar geladen worden.</strong>
+            <p>De factuurgegevens hierboven komen nog wel uit de opgeslagen factuur. Gebruik het originele document als bron wanneer je iets wilt controleren.</p>
+          </div>
+        ) : null}
 
         {possibleDuplicate && duplicateOriginal ? (
           <div className="invoice-source-note is-warning" role="status">
