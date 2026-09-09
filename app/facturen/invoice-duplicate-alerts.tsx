@@ -17,6 +17,20 @@ function displayCounterparty(invoice: InvoiceCandidate) {
   return invoice.supplier_name ?? invoice.customer_name ?? "Onbekende partij";
 }
 
+function DuplicateCheckUnavailable() {
+  return (
+    <section className="card invoice-safety-card" role="status" aria-labelledby="duplicate-check-error-title">
+      <div>
+        <div className="eyebrow">Controle niet volledig</div>
+        <h2 id="duplicate-check-error-title">We konden mogelijke dubbele facturen nu niet betrouwbaar controleren.</h2>
+        <p className="muted">
+          Je facturen zijn niet verdwenen en we verwijderen niets automatisch. Probeer de pagina opnieuw voordat je ervan uitgaat dat er geen dubbele facturen zijn.
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export default async function InvoiceDuplicateAlerts() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -29,7 +43,8 @@ export default async function InvoiceDuplicateAlerts() {
     .eq("status", "active")
     .limit(2);
 
-  if (membershipError || !memberships?.length || memberships.length !== 1) return null;
+  if (membershipError) return <DuplicateCheckUnavailable />;
+  if (!memberships?.length || memberships.length !== 1) return null;
 
   const companyId = memberships[0].company_id as string;
   const invoices: InvoiceCandidate[] = [];
@@ -43,7 +58,7 @@ export default async function InvoiceDuplicateAlerts() {
       .order("created_at", { ascending: false })
       .range(offset, offset + invoicePageSize - 1);
 
-    if (error) return null;
+    if (error) return <DuplicateCheckUnavailable />;
 
     const page = (data ?? []) as InvoiceCandidate[];
     invoices.push(...page);
