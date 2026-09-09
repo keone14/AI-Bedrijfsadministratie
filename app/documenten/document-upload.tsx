@@ -150,9 +150,12 @@ export default function DocumentUpload() {
           <h2 id="document-upload-title">Voeg een bedrijfsdocument toe</h2>
           <p className="muted">Voor contracten, attesten, overheidsbrieven en andere bedrijfsdocumenten. PDF, JPG of PNG. Maximaal 20 tegelijk en 10 MB per bestand.</p>
         </div>
-        <button className="button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
-          {busy ? "Bezig met uploaden..." : "+ Document toevoegen"}
-        </button>
+        <div className="document-actions">
+          <a className="button secondary" href="/api/exports/documents">Download originelen</a>
+          <button className="button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
+            {busy ? "Bezig met uploaden..." : "+ Document toevoegen"}
+          </button>
+        </div>
       </div>
 
       <div className="document-route-note" role="note" aria-label="Facturen horen bij de facturenflow">
