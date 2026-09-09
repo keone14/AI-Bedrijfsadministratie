@@ -19,7 +19,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
     .eq("user_id", user.id)
     .eq("status", "active");
 
-  if (membershipError || !memberships?.length) {
+  if (membershipError) {
+    return NextResponse.json(
+      {
+        error: "We konden je toegangsrechten nu niet betrouwbaar controleren. Probeer opnieuw. Dit betekent niet dat je document weg is.",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (!memberships?.length) {
     return NextResponse.json({ error: "Dit document kon niet veilig aan een toegankelijk bedrijf gekoppeld worden." }, { status: 403 });
   }
 
@@ -31,13 +40,36 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
     .in("company_id", companyIds)
     .maybeSingle();
 
-  if (documentError || !document?.storage_path) {
+  if (documentError) {
+    return NextResponse.json(
+      {
+        error: "We konden dit document nu niet betrouwbaar ophalen. Probeer opnieuw. Dit betekent niet dat het document verwijderd is.",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (!document) {
     return NextResponse.json({ error: "Document niet gevonden of niet toegankelijk." }, { status: 404 });
+  }
+
+  if (!document.storage_path) {
+    return NextResponse.json(
+      {
+        error: "Het document bestaat, maar het originele bestand is niet correct gekoppeld. Er is niets automatisch verwijderd.",
+      },
+      { status: 409 },
+    );
   }
 
   const expectedPrefix = `company/${document.company_id}/documents/${document.id}/`;
   if (!document.storage_path.startsWith(expectedPrefix)) {
-    return NextResponse.json({ error: "De opslaglocatie van dit document is niet betrouwbaar." }, { status: 403 });
+    return NextResponse.json(
+      {
+        error: "De opslaglocatie van dit document klopt niet met de beveiligde bedrijfsmap. Het bestand wordt daarom niet geopend.",
+      },
+      { status: 409 },
+    );
   }
 
   const { data: signed, error: signedUrlError } = await supabase.storage
@@ -45,7 +77,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
     .createSignedUrl(document.storage_path, 60);
 
   if (signedUrlError || !signed?.signedUrl) {
-    return NextResponse.json({ error: "Het originele document kon nu niet veilig geopend worden." }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Het originele document kon nu niet veilig geopend worden. Probeer opnieuw. Het document is hierdoor niet verwijderd.",
+      },
+      { status: 503 },
+    );
   }
 
   const response = NextResponse.redirect(signed.signedUrl, 302);
