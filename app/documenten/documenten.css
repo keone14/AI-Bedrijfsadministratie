@@ -53,6 +53,13 @@
 .document-row-side { flex: 0 0 auto; display: grid; justify-items: end; gap: 9px; }
 .document-status { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 9px; border-radius: 999px; background: #f4faf7; border: 1px solid #cce2d7; color: #245b43; font-size: .78rem; font-weight: 700; }
 .document-status.is-review { background: #fff8eb; border-color: #f0d7a8; color: #8a5b10; }
+.document-type-control { width: min(100%, 440px); display: grid; gap: 6px; justify-items: stretch; }
+.document-type-control label { color: var(--text); font-size: .82rem; font-weight: 750; }
+.document-type-control-row { display: grid; grid-template-columns: minmax(150px, 1fr) auto; gap: 8px; }
+.document-type-control select { min-width: 0; min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text); padding: 8px 34px 8px 11px; font: inherit; }
+.document-type-control select:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 18%, transparent); outline-offset: 1px; border-color: var(--accent); }
+.document-type-control .button { min-height: 44px; white-space: nowrap; }
+.document-type-control > span { font-size: .78rem; line-height: 1.4; text-align: right; }
 .document-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .document-actions .button { min-height: 44px; padding: 9px 12px; }
 .documents-state { display: grid; gap: 12px; justify-items: start; }
@@ -88,12 +95,19 @@
   .documents-summary { grid-template-columns: 1fr; }
   .document-row { align-items: stretch; flex-direction: column; }
   .document-row-side { justify-items: stretch; }
+  .document-type-control { width: 100%; }
+  .document-type-control > span { text-align: left; }
   .document-actions { justify-content: flex-start; }
   .document-actions .button { flex: 1 1 170px; }
   .document-actions .text-button { min-height: 44px; display: inline-flex; align-items: center; }
   .documents-pagination { align-items: stretch; flex-direction: column; }
   .documents-pagination > div { width: 100%; }
   .documents-pagination .button { flex: 1; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .document-type-control-row { grid-template-columns: 1fr; }
+  .document-type-control .button { width: 100%; justify-content: center; }
 }
 
 @media (max-width: 390px) {
