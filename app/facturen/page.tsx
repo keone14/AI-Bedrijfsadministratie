@@ -156,8 +156,24 @@ export default async function FacturenPage({ searchParams }: FacturenPageProps) 
               <div className="eyebrow">Je data blijft van jou</div>
               <h2 id="export-title">Gegevens exporteren</h2>
               <p className="muted">Download een leesbare CSV die je kunt openen in Excel of LibreOffice. We exporteren alleen gegevens van het ene bedrijf dat je nu veilig kunt gebruiken.</p>
+              <form className="invoice-filter-card" action="/api/exports/invoices" method="get">
+                <div className="invoice-filter-grid">
+                  <div className="invoice-filter-field">
+                    <label htmlFor="export-from">Van factuurdatum</label>
+                    <input id="export-from" name="from" type="date" />
+                  </div>
+                  <div className="invoice-filter-field">
+                    <label htmlFor="export-to">Tot en met factuurdatum</label>
+                    <input id="export-to" name="to" type="date" />
+                  </div>
+                </div>
+                <div className="invoice-filter-actions">
+                  <button className="button secondary" type="submit">Exporteer gekozen periode</button>
+                  <a className="text-button" href="/api/exports/invoices">Exporteer alle facturen</a>
+                </div>
+                <p className="muted">Laat beide datums leeg om alles te exporteren. Facturen zonder betrouwbare factuurdatum zitten niet in een beperkte periode; kies “Exporteer alle facturen” om die ook mee te nemen.</p>
+              </form>
               <div className="dashboard-heading-actions">
-                <a className="button secondary" href="/api/exports/invoices">Exporteer facturen</a>
                 <a className="button secondary" href="/api/exports/company">Exporteer bedrijfsgegevens</a>
               </div>
             </section>
