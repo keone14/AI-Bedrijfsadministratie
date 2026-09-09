@@ -1,6 +1,7 @@
 "use client";
 
 import { DragEvent, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -147,11 +148,19 @@ export default function DocumentUpload() {
         <div>
           <div className="eyebrow">Veilige upload</div>
           <h2 id="document-upload-title">Voeg een bedrijfsdocument toe</h2>
-          <p className="muted">Contract, attest, overheidsbrief of ander bedrijfsdocument. PDF, JPG of PNG. Maximaal 20 tegelijk en 10 MB per bestand.</p>
+          <p className="muted">Voor contracten, attesten, overheidsbrieven en andere bedrijfsdocumenten. PDF, JPG of PNG. Maximaal 20 tegelijk en 10 MB per bestand.</p>
         </div>
         <button className="button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
           {busy ? "Bezig met uploaden..." : "+ Document toevoegen"}
         </button>
+      </div>
+
+      <div className="document-route-note" role="note" aria-label="Facturen horen bij de facturenflow">
+        <div>
+          <strong>Wil je een factuur toevoegen?</strong>
+          <span>Gebruik dan Facturen. Daar wordt het document niet alleen bewaard, maar ook uitgelezen, gecontroleerd en meegenomen in je financieel overzicht. Zo voorkom je dat een factuur als gewoon document blijft staan.</span>
+        </div>
+        <Link className="button secondary" href="/facturen">Naar Facturen</Link>
       </div>
 
       <input
@@ -169,8 +178,8 @@ export default function DocumentUpload() {
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
       >
-        <strong>Sleep documenten hierheen</strong>
-        <span>of gebruik de knop hierboven op gsm of pc.</span>
+        <strong>Sleep andere bedrijfsdocumenten hierheen</strong>
+        <span>Geen facturen. Gebruik daarvoor de Facturenpagina.</span>
       </div>
 
       <div className="document-upload-note">
