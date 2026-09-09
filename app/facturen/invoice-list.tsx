@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import InvoiceReviewActions from "./invoice-review-actions";
 import InvoiceExtractionRetry from "./invoice-extraction-retry";
@@ -30,6 +31,13 @@ type CorrectionRow = { invoice_id: string; field_name: string };
 type CategoryRow = { id: string; simple_label: string; description_simple: string | null };
 type CategoryAuditRow = { entity_id: string | null; action: string };
 
+export type InvoiceListFilters = {
+  q?: string;
+  type?: string;
+  category?: string;
+  status?: string;
+};
+
 const fieldLabels: Record<string, string> = {
   documentType: "Documenttype",
   supplierName: "Leverancier",
@@ -45,6 +53,8 @@ const fieldLabels: Record<string, string> = {
   invoiceType: "Aankoop of verkoop",
   categoryId: "Categorie",
 };
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function formatMoney(value: number | null, currency: string | null) {
   if (value === null) return "Niet zeker / niet gevonden";
@@ -111,31 +121,122 @@ function categoryReason(options: {
   return `Er is te weinig duidelijke broninformatie om deze categorie sterk te motiveren. ${options.categoryLabel} is alleen een voorstel op basis van de beperkte beschikbare factuurcontext. Controleer de categorie voordat je de factuur bevestigt.`;
 }
 
-export default async function InvoiceList() {
-  const supabase = await createSupabaseServerClient();
-  const [{ data: invoiceData }, { data: categoryData }] = await Promise.all([
-    supabase
-      .from("invoices")
-      .select("id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, category_id, review_status, extraction_confidence, approved_at, created_at, document_id")
-      .order("created_at", { ascending: false })
-      .limit(50),
-    supabase
-      .from("categories")
-      .select("id, simple_label, description_simple")
-      .eq("active", true)
-      .order("simple_label", { ascending: true }),
-  ]);
+function normalizeSearch(value: string | undefined) {
+  return (value ?? "")
+    .slice(0, 80)
+    .replace(/[,%_()"'\\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  const invoices = (invoiceData ?? []) as InvoiceRow[];
+function InvoiceFilters({
+  categories,
+  filters,
+}: {
+  categories: CategoryRow[];
+  filters: Required<InvoiceListFilters>;
+}) {
+  const active = Boolean(filters.q || filters.type || filters.category || filters.status);
+  return (
+    <form className="card invoice-filter-card" method="get" action="/facturen" aria-label="Facturen zoeken en filteren">
+      <div className="invoice-filter-grid">
+        <div className="invoice-filter-field invoice-filter-search">
+          <label htmlFor="invoice-search">Zoek factuur</label>
+          <input
+            id="invoice-search"
+            name="q"
+            type="search"
+            defaultValue={filters.q}
+            placeholder="Leverancier, klant of factuurnummer"
+            autoComplete="off"
+          />
+        </div>
+        <div className="invoice-filter-field">
+          <label htmlFor="invoice-type">Aankoop of verkoop</label>
+          <select id="invoice-type" name="type" defaultValue={filters.type}>
+            <option value="">Alles</option>
+            <option value="purchase">Aankopen</option>
+            <option value="sale">Verkopen</option>
+          </select>
+        </div>
+        <div className="invoice-filter-field">
+          <label htmlFor="invoice-category">Categorie</label>
+          <select id="invoice-category" name="category" defaultValue={filters.category}>
+            <option value="">Alle categorieën</option>
+            {categories.map((category) => <option key={category.id} value={category.id}>{category.simple_label}</option>)}
+          </select>
+        </div>
+        <div className="invoice-filter-field">
+          <label htmlFor="invoice-status">Status</label>
+          <select id="invoice-status" name="status" defaultValue={filters.status}>
+            <option value="">Alle statussen</option>
+            <option value="review">Nog nakijken</option>
+            <option value="confirmed">Door jou bevestigd</option>
+            <option value="auto_verified">Automatisch in orde</option>
+          </select>
+        </div>
+      </div>
+      <div className="invoice-filter-actions">
+        <button className="button" type="submit">Zoeken</button>
+        {active ? <Link className="text-button" href="/facturen">Filters wissen</Link> : null}
+      </div>
+    </form>
+  );
+}
+
+export default async function InvoiceList({ filters = {} }: { filters?: InvoiceListFilters }) {
+  const supabase = await createSupabaseServerClient();
+  const normalizedFilters: Required<InvoiceListFilters> = {
+    q: normalizeSearch(filters.q),
+    type: filters.type === "purchase" || filters.type === "sale" ? filters.type : "",
+    category: filters.category && uuidPattern.test(filters.category) ? filters.category : "",
+    status: filters.status === "review" || filters.status === "confirmed" || filters.status === "auto_verified" ? filters.status : "",
+  };
+  const hasActiveFilters = Boolean(normalizedFilters.q || normalizedFilters.type || normalizedFilters.category || normalizedFilters.status);
+
+  const { data: categoryData } = await supabase
+    .from("categories")
+    .select("id, simple_label, description_simple")
+    .eq("active", true)
+    .order("simple_label", { ascending: true });
   const categories = (categoryData ?? []) as CategoryRow[];
+
+  let invoiceQuery = supabase
+    .from("invoices")
+    .select("id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, category_id, review_status, extraction_confidence, approved_at, created_at, document_id")
+    .order("created_at", { ascending: false })
+    .limit(hasActiveFilters ? 100 : 50);
+
+  if (normalizedFilters.q) {
+    const pattern = `%${normalizedFilters.q}%`;
+    invoiceQuery = invoiceQuery.or(`supplier_name.ilike.${pattern},customer_name.ilike.${pattern},invoice_number.ilike.${pattern}`);
+  }
+  if (normalizedFilters.type) invoiceQuery = invoiceQuery.eq("invoice_type", normalizedFilters.type);
+  if (normalizedFilters.category) invoiceQuery = invoiceQuery.eq("category_id", normalizedFilters.category);
+  if (normalizedFilters.status === "confirmed") invoiceQuery = invoiceQuery.eq("review_status", "confirmed");
+  if (normalizedFilters.status === "auto_verified") invoiceQuery = invoiceQuery.eq("review_status", "auto_verified");
+  if (normalizedFilters.status === "review") {
+    invoiceQuery = invoiceQuery.neq("review_status", "confirmed").neq("review_status", "auto_verified");
+  }
+
+  const { data: invoiceData } = await invoiceQuery;
+  const invoices = (invoiceData ?? []) as InvoiceRow[];
   const categoryLabels = new Map(categories.map((category) => [category.id, category.simple_label]));
 
   if (!invoices.length) {
     return (
-      <section className="card invoices-empty-state">
-        <div className="empty-icon" aria-hidden="true">↥</div>
-        <h2>Nog geen facturen</h2>
-        <p className="muted">Upload je eerste PDF, JPG of PNG. Het originele document wordt eerst veilig bewaard. Uitlezing blijft apart en onzekerheid wordt niet verborgen.</p>
+      <section className="invoice-list-section" aria-labelledby="invoice-list-title">
+        <div className="section-intro">
+          <div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Vind snel wat je nodig hebt</h2></div>
+          <p className="muted">Zoek op leverancier, klant of factuurnummer. Filters werken op de opgeslagen factuurgegevens zodat je niet door alle kaarten hoeft te bladeren.</p>
+        </div>
+        <InvoiceFilters categories={categories} filters={normalizedFilters} />
+        <section className="card invoices-empty-state">
+          <div className="empty-icon" aria-hidden="true">↥</div>
+          <h2>{hasActiveFilters ? "Geen facturen gevonden" : "Nog geen facturen"}</h2>
+          <p className="muted">{hasActiveFilters ? "Er past geen factuur bij deze zoekterm en filters. Wis één of meer filters en probeer opnieuw." : "Upload je eerste PDF, JPG of PNG. Het originele document wordt eerst veilig bewaard. Uitlezing blijft apart en onzekerheid wordt niet verborgen."}</p>
+          {hasActiveFilters ? <Link className="button secondary" href="/facturen">Alle facturen tonen</Link> : null}
+        </section>
       </section>
     );
   }
@@ -174,8 +275,9 @@ export default async function InvoiceList() {
     <section className="invoice-list-section" aria-labelledby="invoice-list-title">
       <div className="section-intro">
         <div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Alleen controleren waar dat echt nodig is</h2></div>
-        <p className="muted">De app gebruikt een conservatieve confidence-regel. Hoge zekerheid plus geslaagde vaste controles kan automatisch in orde zijn. Bij twijfel tonen we precies welke velden je moet nakijken.</p>
+        <p className="muted">Zoek gericht of filter de lijst. De app blijft alleen betrouwbare gegevens als betrouwbaar behandelen en maakt twijfel zichtbaar.</p>
       </div>
+      <InvoiceFilters categories={categories} filters={normalizedFilters} />
 
       <div className="invoice-card-list">
         {invoices.map((invoice) => {
