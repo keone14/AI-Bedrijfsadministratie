@@ -131,7 +131,6 @@ export async function GET() {
       const { data, error } = await supabase
         .from("categories")
         .select("id, simple_label")
-        .eq("company_id", companyId)
         .in("id", batch);
 
       if (error) {
