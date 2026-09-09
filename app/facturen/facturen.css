@@ -23,6 +23,14 @@
 .upload-result.success > span { color: #027a48; font-weight: 800; }
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .invoice-list-section { display: grid; gap: 16px; }
+.invoice-filter-card { display: grid; gap: 14px; padding: 16px; }
+.invoice-filter-grid { display: grid; grid-template-columns: minmax(240px, 1.7fr) repeat(3, minmax(150px, 1fr)); gap: 10px; align-items: end; }
+.invoice-filter-field { display: grid; gap: 6px; min-width: 0; }
+.invoice-filter-field label { color: #475467; font-size: .8rem; font-weight: 750; }
+.invoice-filter-field input, .invoice-filter-field select { width: 100%; min-height: 44px; border: 1px solid #cfd8df; border-radius: 9px; background: #fff; padding: 10px 11px; color: var(--text); font: inherit; }
+.invoice-filter-field input:focus, .invoice-filter-field select:focus { outline: 2px solid color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); }
+.invoice-filter-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.invoice-filter-actions .button { min-height: 44px; }
 .invoice-card-list { display: grid; gap: 12px; }
 .invoice-record-card { display: grid; gap: 16px; }
 .invoice-record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -99,6 +107,8 @@
 .compact-help { margin-top: 4px; }
 
 @media (max-width: 900px) {
+  .invoice-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .invoice-filter-search { grid-column: 1 / -1; }
   .invoice-read-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .invoice-correction-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -115,6 +125,11 @@
   .upload-card { padding: 16px; }
   .upload-dropzone { min-height: 104px; padding: 17px 12px; }
   .upload-result { align-items: flex-start; }
+  .invoice-filter-card { padding: 14px; }
+  .invoice-filter-grid { grid-template-columns: 1fr; }
+  .invoice-filter-search { grid-column: auto; }
+  .invoice-filter-actions { display: grid; }
+  .invoice-filter-actions .button, .invoice-filter-actions .text-button { width: 100%; justify-content: center; min-height: 44px; }
   .invoice-record-heading { display: grid; }
   .invoice-state { justify-self: start; }
   .invoice-read-grid, .invoice-correction-grid { grid-template-columns: 1fr; }
