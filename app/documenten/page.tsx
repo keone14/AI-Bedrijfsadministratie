@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import DocumentUpload from "./document-upload";
+import DocumentTypeControl from "./document-type-control";
 import "./documenten.css";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,11 @@ type DocumentsResult = {
 function documentTypeLabel(type: string | null) {
   if (type === "invoice") return "Factuur";
   if (type === "credit_note") return "Creditnota";
+  if (type === "tax") return "Belastingen";
+  if (type === "insurance") return "Verzekering";
+  if (type === "contract") return "Contract";
+  if (type === "government") return "Overheid";
+  if (type === "other") return "Andere";
   if (!type) return "Type nog niet bevestigd";
   return "Ander document";
 }
@@ -344,6 +350,7 @@ export default async function DocumentenPage({ searchParams }: { searchParams: P
                           </div>
                           <div className="document-row-side">
                             <span className={`document-status ${document.review_status === "needs_review" || document.processing_status === "failed" ? "is-review" : ""}`}>{documentStatus(document)}</span>
+                            {!invoice ? <DocumentTypeControl documentId={document.id} currentType={document.document_type} /> : null}
                             <div className="document-actions">
                               <a className="button secondary" href={`/api/documents/${document.id}/open`} target="_blank" rel="noreferrer">Open origineel</a>
                               {invoice ? <Link className="text-button" href={`/facturen/${invoice.id}`}>Bekijk factuurgegevens</Link> : null}
@@ -382,7 +389,7 @@ export default async function DocumentenPage({ searchParams }: { searchParams: P
 
         <section className="card documents-safety">
           <strong>Wat deze kluis nu veilig doet</strong>
-          <p className="muted">Originele bestanden blijven privé en worden niet overschreven. Een algemene upload krijgt bewust geen definitief documenttype zolang dat niet betrouwbaar is vastgesteld. Automatische classificatie voegen we pas toe wanneer twijfel zichtbaar en controleerbaar blijft.</p>
+          <p className="muted">Originele bestanden blijven privé en worden niet overschreven. Bij algemene documenten kun je het type zelf bevestigen; die keuze wordt per bedrijf gecontroleerd en gelogd. We laten de app niet zelfstandig een fiscaal of juridisch documenttype als waarheid vastzetten.</p>
         </section>
       </main>
 
