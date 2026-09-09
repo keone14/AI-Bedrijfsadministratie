@@ -184,6 +184,24 @@ function InvoiceFilters({
   );
 }
 
+function InvoiceLoadError({ categories, filters }: { categories: CategoryRow[]; filters: Required<InvoiceListFilters> }) {
+  return (
+    <section className="invoice-list-section" aria-labelledby="invoice-list-title">
+      <div className="section-intro">
+        <div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Facturen tijdelijk niet betrouwbaar geladen</h2></div>
+        <p className="muted">Een technisch probleem mag nooit lijken alsof je administratie leeg is.</p>
+      </div>
+      <InvoiceFilters categories={categories} filters={filters} />
+      <section className="card invoices-empty-state" role="alert">
+        <div className="empty-icon" aria-hidden="true">!</div>
+        <h2>We konden je facturen nu niet betrouwbaar ophalen</h2>
+        <p className="muted">Dit betekent niet dat je geen facturen hebt. We tonen daarom bewust geen lege of onvolledige lijst. Probeer opnieuw voordat je conclusies trekt over je administratie.</p>
+        <Link className="button secondary" href="/facturen">Opnieuw proberen</Link>
+      </section>
+    </section>
+  );
+}
+
 export default async function InvoiceList({ filters = {} }: { filters?: InvoiceListFilters }) {
   const supabase = await createSupabaseServerClient();
   const normalizedFilters: Required<InvoiceListFilters> = {
@@ -194,12 +212,16 @@ export default async function InvoiceList({ filters = {} }: { filters?: InvoiceL
   };
   const hasActiveFilters = Boolean(normalizedFilters.q || normalizedFilters.type || normalizedFilters.category || normalizedFilters.status);
 
-  const { data: categoryData } = await supabase
+  const { data: categoryData, error: categoryError } = await supabase
     .from("categories")
     .select("id, simple_label, description_simple")
     .eq("active", true)
     .order("simple_label", { ascending: true });
   const categories = (categoryData ?? []) as CategoryRow[];
+
+  if (categoryError) {
+    return <InvoiceLoadError categories={[]} filters={normalizedFilters} />;
+  }
 
   let invoiceQuery = supabase
     .from("invoices")
@@ -219,7 +241,11 @@ export default async function InvoiceList({ filters = {} }: { filters?: InvoiceL
     invoiceQuery = invoiceQuery.neq("review_status", "confirmed").neq("review_status", "auto_verified");
   }
 
-  const { data: invoiceData } = await invoiceQuery;
+  const { data: invoiceData, error: invoiceError } = await invoiceQuery;
+  if (invoiceError) {
+    return <InvoiceLoadError categories={categories} filters={normalizedFilters} />;
+  }
+
   const invoices = (invoiceData ?? []) as InvoiceRow[];
   const categoryLabels = new Map(categories.map((category) => [category.id, category.simple_label]));
 
@@ -243,13 +269,23 @@ export default async function InvoiceList({ filters = {} }: { filters?: InvoiceL
 
   const invoiceIds = invoices.map((invoice) => invoice.id);
   const documentIds = invoices.map((invoice) => invoice.document_id);
-  const [{ data: jobData }, { data: documentData }, { data: extractionData }, { data: correctionData }, { data: categoryAuditData }] = await Promise.all([
+  const [jobResult, documentResult, extractionResult, correctionResult, categoryAuditResult] = await Promise.all([
     supabase.from("invoice_processing_jobs").select("invoice_id, status, error_code").in("invoice_id", invoiceIds),
     supabase.from("documents").select("id, display_name, original_filename, processing_status, document_type").in("id", documentIds),
     supabase.from("invoice_extractions").select("invoice_id, field_name, confidence, proposed_value_json, user_confirmed").in("invoice_id", invoiceIds),
     supabase.from("invoice_field_corrections").select("invoice_id, field_name").in("invoice_id", invoiceIds),
     supabase.from("audit_logs").select("entity_id, action").eq("entity_type", "invoice").eq("action", "invoice_category_preference_applied").in("entity_id", invoiceIds),
   ]);
+
+  if (jobResult.error || documentResult.error || extractionResult.error || correctionResult.error || categoryAuditResult.error) {
+    return <InvoiceLoadError categories={categories} filters={normalizedFilters} />;
+  }
+
+  const jobData = jobResult.data;
+  const documentData = documentResult.data;
+  const extractionData = extractionResult.data;
+  const correctionData = correctionResult.data;
+  const categoryAuditData = categoryAuditResult.data;
 
   const jobs = new Map(((jobData ?? []) as JobRow[]).map((job) => [job.invoice_id, job]));
   const documents = new Map(((documentData ?? []) as DocumentRow[]).map((document) => [document.id, document]));
