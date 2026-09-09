@@ -1,0 +1,175 @@
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const PAGE_SIZE = 1000;
+
+const columns = [
+  "Factuurdatum",
+  "Vervaldatum",
+  "Type",
+  "Leverancier",
+  "Klant",
+  "Factuurnummer",
+  "Categorie",
+  "Omschrijving",
+  "Bedrag zonder btw",
+  "Btw",
+  "Totaal",
+  "Valuta",
+  "Status",
+] as const;
+
+type InvoiceRow = {
+  supplier_name: string | null;
+  customer_name: string | null;
+  invoice_number: string | null;
+  invoice_date: string | null;
+  due_date: string | null;
+  currency: string | null;
+  subtotal: number | null;
+  vat_amount: number | null;
+  total: number | null;
+  description: string | null;
+  invoice_type: string | null;
+  category_id: string | null;
+  review_status: string;
+  created_at: string;
+};
+
+type CategoryRow = { id: string; simple_label: string };
+
+function safeCsvCell(value: unknown) {
+  let text = value === null || value === undefined ? "" : String(value);
+
+  // Prevent spreadsheet formula injection when the CSV is opened in Excel/LibreOffice.
+  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function typeLabel(value: string | null) {
+  if (value === "purchase") return "Aankoop";
+  if (value === "sale") return "Verkoop";
+  return "Niet bevestigd";
+}
+
+function statusLabel(value: string) {
+  if (value === "confirmed") return "Door gebruiker bevestigd";
+  if (value === "auto_verified") return "Automatisch in orde";
+  if (value === "needs_review") return "Nog nakijken";
+  return "Niet bevestigd";
+}
+
+function belgianTodayIso() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Brussels",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+export async function GET() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
+    }
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(2);
+
+    if (membershipError) {
+      return NextResponse.json({ error: "We konden je bedrijf nu niet betrouwbaar bepalen." }, { status: 500 });
+    }
+    if (!memberships?.length) {
+      return NextResponse.json({ error: "Stel eerst je bedrijf in voordat je facturen exporteert." }, { status: 409 });
+    }
+    if (memberships.length > 1) {
+      return NextResponse.json(
+        { error: "Kies eerst welk bedrijf je wilt gebruiken. We exporteren nooit gegevens van meerdere bedrijven samen." },
+        { status: 409 },
+      );
+    }
+
+    const companyId = memberships[0].company_id as string;
+    const invoices: InvoiceRow[] = [];
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select("supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, category_id, review_status, created_at")
+        .eq("company_id", companyId)
+        .order("invoice_date", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (error) {
+        return NextResponse.json({ error: "Je facturen konden nu niet betrouwbaar worden geëxporteerd." }, { status: 500 });
+      }
+
+      const page = (data ?? []) as InvoiceRow[];
+      invoices.push(...page);
+      if (page.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+
+    const categoryIds = Array.from(new Set(invoices.map((invoice) => invoice.category_id).filter((id): id is string => Boolean(id))));
+    const categories = new Map<string, string>();
+
+    for (let index = 0; index < categoryIds.length; index += PAGE_SIZE) {
+      const batch = categoryIds.slice(index, index + PAGE_SIZE);
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, simple_label")
+        .eq("company_id", companyId)
+        .in("id", batch);
+
+      if (error) {
+        return NextResponse.json({ error: "De categorieën konden niet veilig aan je export worden toegevoegd." }, { status: 500 });
+      }
+
+      for (const category of (data ?? []) as CategoryRow[]) categories.set(category.id, category.simple_label);
+    }
+
+    const rows = invoices.map((invoice) => [
+      invoice.invoice_date,
+      invoice.due_date,
+      typeLabel(invoice.invoice_type),
+      invoice.supplier_name,
+      invoice.customer_name,
+      invoice.invoice_number,
+      invoice.category_id ? categories.get(invoice.category_id) ?? "Categorie niet beschikbaar" : "Niet bevestigd",
+      invoice.description,
+      invoice.subtotal,
+      invoice.vat_amount,
+      invoice.total,
+      invoice.currency,
+      statusLabel(invoice.review_status),
+    ]);
+
+    const csv = `\uFEFF${[columns, ...rows].map((row) => row.map(safeCsvCell).join(";")).join("\r\n")}`;
+    const filename = `facturen-export-${belgianTodayIso()}.csv`;
+
+    return new NextResponse(csv, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Cache-Control": "private, no-store, max-age=0, must-revalidate",
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch {
+    return NextResponse.json({ error: "De export kon nu niet betrouwbaar worden gemaakt. Probeer opnieuw." }, { status: 500 });
+  }
+}
