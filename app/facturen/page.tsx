@@ -1,7 +1,7 @@
 import Link from "next/link";
 import InvoiceUpload from "./invoice-upload";
 import InvoiceDuplicateAlerts from "./invoice-duplicate-alerts";
-import InvoiceList from "./invoice-list";
+import InvoiceList, { type InvoiceListFilters } from "./invoice-list";
 import "./facturen.css";
 
 const nav = [
@@ -40,7 +40,23 @@ const invoiceTerms = [
   },
 ];
 
-export default function FacturenPage() {
+type FacturenPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+export default async function FacturenPage({ searchParams }: FacturenPageProps) {
+  const params = await searchParams;
+  const filters: InvoiceListFilters = {
+    q: firstParam(params.q),
+    type: firstParam(params.type),
+    category: firstParam(params.category),
+    status: firstParam(params.status),
+  };
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -67,7 +83,7 @@ export default function FacturenPage() {
 
         <InvoiceUpload />
         <InvoiceDuplicateAlerts />
-        <InvoiceList />
+        <InvoiceList filters={filters} />
 
         <section className="card invoice-safety-card" aria-labelledby="upload-status-title">
           <div>
