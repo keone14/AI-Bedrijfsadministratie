@@ -171,9 +171,12 @@ export default function InvoiceUpload() {
           <h2 id="invoice-upload-title">Voeg je facturen toe</h2>
           <p className="muted">PDF, JPG of PNG. Maximaal 20 bestanden tegelijk en 10 MB per bestand.</p>
         </div>
-        <button className="button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
-          {busy ? "Bezig met uploaden..." : "+ Factuur uploaden"}
-        </button>
+        <div className="invoice-filter-actions">
+          <a className="button secondary" href="/api/exports/invoices">Exporteer facturen</a>
+          <button className="button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
+            {busy ? "Bezig met uploaden..." : "+ Factuur uploaden"}
+          </button>
+        </div>
       </div>
 
       <input
