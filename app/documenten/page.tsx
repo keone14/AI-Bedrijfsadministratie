@@ -12,7 +12,7 @@ const nav = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Facturen", href: "/facturen" },
   { label: "Documenten", href: "/documenten", active: true },
-  { label: "Deadlines", href: null },
+  { label: "Deadlines", href: "/deadlines" },
   { label: "Assistent", href: null },
   { label: "Bedrijf", href: "/onboarding" },
 ];
@@ -387,7 +387,7 @@ export default async function DocumentenPage({ searchParams }: { searchParams: P
       </main>
 
       <nav className="mobile-nav" aria-label="Mobiele navigatie">
-        <Link href="/dashboard">Home</Link><Link href="/facturen">Facturen</Link><Link className="active" href="/documenten">Documenten</Link><Link href="/onboarding">Bedrijf</Link><span aria-disabled="true">Deadlines</span>
+        <Link href="/dashboard">Home</Link><Link href="/facturen">Facturen</Link><Link className="active" href="/documenten">Documenten</Link><Link href="/deadlines">Deadlines</Link><Link href="/onboarding">Bedrijf</Link>
       </nav>
     </div>
   );
