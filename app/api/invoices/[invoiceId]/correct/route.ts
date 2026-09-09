@@ -45,23 +45,32 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Controleer de aangepaste velden." }, { status: 400 });
   }
 
-  const { data: membership, error: membershipError } = await supabase
+  const { data: memberships, error: membershipError } = await supabase
     .from("company_members")
     .select("company_id")
     .eq("user_id", user.id)
     .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+    .limit(2);
 
-  if (membershipError) return NextResponse.json({ error: "Je bedrijfsrechten konden niet betrouwbaar gecontroleerd worden." }, { status: 400 });
-  if (!membership?.company_id) return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
+  if (membershipError) return NextResponse.json({ error: "Je bedrijfsrechten konden niet betrouwbaar gecontroleerd worden." }, { status: 503 });
+  if (!memberships?.length) return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
+  if (memberships.length > 1) {
+    return NextResponse.json(
+      {
+        error: "Je hebt toegang tot meerdere bedrijven. De aanpassing is bewust niet opgeslagen omdat we nooit zelf kiezen voor welk bedrijf je werkt.",
+        code: "COMPANY_SELECTION_REQUIRED",
+      },
+      { status: 409 },
+    );
+  }
 
+  const companyId = memberships[0].company_id as string;
   const { invoiceId } = await context.params;
   const { data: invoice, error: invoiceError } = await supabase
     .from("invoices")
     .select("id")
     .eq("id", invoiceId)
-    .eq("company_id", membership.company_id)
+    .eq("company_id", companyId)
     .maybeSingle();
 
   if (invoiceError) return NextResponse.json({ error: "De factuur kon niet betrouwbaar gecontroleerd worden." }, { status: 400 });
