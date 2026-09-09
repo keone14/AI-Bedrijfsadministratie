@@ -8,8 +8,9 @@ const securityHeaders = [
   { key: "Strict-Transport-Security", value: "max-age=31536000" },
 ];
 
-const protectedPageHeaders = [
+const privateNoStoreHeaders = [
   { key: "Cache-Control", value: "private, no-store, max-age=0, must-revalidate" },
+  { key: "Pragma", value: "no-cache" },
 ];
 
 const protectedPageSources = [
@@ -31,8 +32,12 @@ const nextConfig: NextConfig = {
       },
       ...protectedPageSources.map((source) => ({
         source,
-        headers: protectedPageHeaders,
+        headers: privateNoStoreHeaders,
       })),
+      {
+        source: "/api/:path*",
+        headers: privateNoStoreHeaders,
+      },
     ];
   },
   experimental: {
