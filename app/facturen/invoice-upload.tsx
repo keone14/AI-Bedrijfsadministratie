@@ -44,6 +44,7 @@ export default function InvoiceUpload() {
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [results, setResults] = useState<UploadResult[]>([]);
+  const [failedFiles, setFailedFiles] = useState<File[]>([]);
 
   async function uploadOne(file: File): Promise<UploadResult> {
     const localError = validateFile(file);
@@ -128,11 +129,13 @@ export default function InvoiceUpload() {
     if (!files.length || busy) return;
 
     if (files.length > MAX_FILES) {
+      setFailedFiles([]);
       setResults([{ name: `${files.length} bestanden`, status: "error", message: "Upload maximaal 20 facturen tegelijk." }]);
       return;
     }
 
     setBusy(true);
+    setFailedFiles([]);
     setResults(files.map((file) => ({ name: file.name, status: "pending", message: "Wacht op upload..." })));
 
     const finished: UploadResult[] = [];
@@ -148,6 +151,7 @@ export default function InvoiceUpload() {
       }
 
       setResults(finished);
+      setFailedFiles(files.filter((_, index) => finished[index]?.status === "error"));
       router.refresh();
     } finally {
       setBusy(false);
@@ -206,6 +210,14 @@ export default function InvoiceUpload() {
       {results.length ? (
         <div className="upload-results" aria-live="polite">
           {busy ? <div className="upload-progress">{completedCount} van {results.length} verwerkt</div> : null}
+          {!busy && failedFiles.length ? (
+            <div className="upload-progress">
+              <span>{failedFiles.length} {failedFiles.length === 1 ? "factuur is" : "facturen zijn"} niet gelukt. Succesvolle uploads blijven behouden.</span>
+              <button className="button secondary" type="button" onClick={() => void handleFiles(failedFiles)}>
+                Probeer alleen mislukte opnieuw
+              </button>
+            </div>
+          ) : null}
           {results.map((result, index) => (
             <div className={`upload-result ${result.status}`} key={`${result.name}-${index}`}>
               <div>
