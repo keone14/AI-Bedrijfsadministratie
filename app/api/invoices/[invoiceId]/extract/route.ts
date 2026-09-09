@@ -72,30 +72,40 @@ export async function POST(_request: Request, context: RouteContext) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
 
-  const { data: membership, error: membershipError } = await supabase
+  const { data: memberships, error: membershipError } = await supabase
     .from("company_members")
     .select("company_id")
     .eq("user_id", user.id)
     .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
+    .limit(2);
 
   if (membershipError) {
-    return NextResponse.json({ error: "Je bedrijfsrechten konden niet betrouwbaar gecontroleerd worden." }, { status: 400 });
+    return NextResponse.json({ error: "Je bedrijfsrechten konden niet betrouwbaar gecontroleerd worden." }, { status: 503 });
   }
-  if (!membership?.company_id) {
+  if (!memberships?.length) {
     return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
   }
+  if (memberships.length > 1) {
+    return NextResponse.json(
+      {
+        error: "Je hebt toegang tot meerdere bedrijven. De uitlezing is bewust niet gestart omdat we nooit zelf kiezen bij welk bedrijf een factuur hoort.",
+        code: "COMPANY_SELECTION_REQUIRED",
+      },
+      { status: 409 },
+    );
+  }
+
+  const companyId = memberships[0].company_id as string;
 
   // AI processing may read an original document with elevated server credentials.
-  // Therefore scope the invoice explicitly to the user's active company before any
-  // admin client, storage download or background processing is started. RLS remains
+  // Therefore scope the invoice explicitly to the user's unambiguous company before
+  // any admin client, storage download or background processing is started. RLS remains
   // an additional defence layer, not the only authorization boundary.
   const { data: invoice, error: invoiceError } = await supabase
     .from("invoices")
     .select("id, company_id, document_id")
     .eq("id", invoiceId)
-    .eq("company_id", membership.company_id)
+    .eq("company_id", companyId)
     .maybeSingle();
 
   if (invoiceError || !invoice) {
@@ -107,12 +117,12 @@ export async function POST(_request: Request, context: RouteContext) {
       .from("documents")
       .select("id, storage_path, mime_type, original_filename")
       .eq("id", invoice.document_id)
-      .eq("company_id", membership.company_id)
+      .eq("company_id", companyId)
       .maybeSingle(),
     supabase
       .from("companies")
       .select("id, name")
-      .eq("id", membership.company_id)
+      .eq("id", companyId)
       .maybeSingle(),
   ]);
 
