@@ -210,16 +210,23 @@ export default async function DashboardPage() {
   const data = await loadDashboardData();
   const { summary } = data;
   const issueCount = summary.needsReviewCount + summary.undatedInvoiceCount;
+  const dashboardUnavailable = data.companyState !== "ready" || summary.status === "error";
 
   const statusCopy = data.companyState === "multiple_companies"
     ? { label: "Kies eerst welk bedrijf je wilt bekijken", detail: "We tellen nooit gegevens van meerdere bedrijven stilletjes bij elkaar op." }
-    : data.companyState === "error" || summary.status === "error"
-      ? { label: "We konden je dashboard nu niet betrouwbaar berekenen", detail: "Er wordt geen oud of geschat bedrag ingevuld. Probeer de pagina opnieuw." }
-      : issueCount > 0
-        ? { label: `${issueCount} ${issueCount === 1 ? "punt" : "punten"} nog nakijken`, detail: "Alleen betrouwbare facturen tellen al mee. Onzekere of mogelijk dubbele facturen blijven buiten de totalen." }
-        : summary.reliableInvoiceCount > 0
-          ? { label: "Je betrouwbare facturen zijn verwerkt", detail: `Het financieel overzicht voor ${summary.period.label} is opnieuw uit de opgeslagen facturen berekend.` }
-          : { label: "Nog niet genoeg gegevens voor een financieel overzicht", detail: "Zonder betrouwbare facturen tonen we geen verzonnen bedragen." };
+    : data.companyState === "no_company"
+      ? { label: "Stel eerst je bedrijf in", detail: "Daarna kunnen we bedragen, facturen en acties veilig aan één onderneming koppelen." }
+      : data.companyState === "error" || summary.status === "error"
+        ? { label: "We konden je dashboard nu niet betrouwbaar berekenen", detail: "Er wordt geen oud, leeg of geschat overzicht als waarheid getoond. Probeer de pagina opnieuw." }
+        : issueCount > 0
+          ? { label: `${issueCount} ${issueCount === 1 ? "punt" : "punten"} nog nakijken`, detail: "Alleen betrouwbare facturen tellen al mee. Onzekere of mogelijk dubbele facturen blijven buiten de totalen." }
+          : summary.reliableInvoiceCount > 0
+            ? { label: "Je betrouwbare facturen zijn verwerkt", detail: `Het financieel overzicht voor ${summary.period.label} is opnieuw uit de opgeslagen facturen berekend.` }
+            : { label: "Nog niet genoeg gegevens voor een financieel overzicht", detail: "Zonder betrouwbare facturen tonen we geen verzonnen bedragen." };
+
+  const unavailableAction = data.companyState === "no_company" || data.companyState === "multiple_companies"
+    ? { href: "/onboarding", label: "Bedrijfsgegevens bekijken" }
+    : { href: "/dashboard", label: "Opnieuw proberen" };
 
   return (
     <div className="shell">
@@ -259,43 +266,53 @@ export default async function DashboardPage() {
           {summary.status === "mixed_currency" ? <p className="dashboard-warning">Meerdere valuta gevonden: {summary.currencies.join(", ")}. We maken daar bewust geen fout gecombineerd totaal van.</p> : null}
         </section>
 
-        <FinancialOverview summary={summary} traceInvoices={data.traceInvoices} vatStatus={data.vatStatus} />
+        {dashboardUnavailable ? (
+          <section className="card" role="status" aria-label="Dashboard tijdelijk niet beschikbaar">
+            <h2>We tonen geen lege cijfers zolang de gegevens niet betrouwbaar zijn</h2>
+            <p className="muted">Dit betekent niet dat je geen facturen, bedragen of open acties hebt. We verbergen het financieel overzicht tijdelijk om een verkeerde conclusie te voorkomen.</p>
+            <Link className="button secondary" href={unavailableAction.href}>{unavailableAction.label}</Link>
+          </section>
+        ) : (
+          <>
+            <FinancialOverview summary={summary} traceInvoices={data.traceInvoices} vatStatus={data.vatStatus} />
 
-        <section className="dashboard-lower-grid">
-          <article className="card action-card">
-            <div className="card-heading-row"><h2>Wat moet er nu gebeuren?</h2><span className="soft-badge">Alleen wat nodig is</span></div>
-            {summary.needsReviewCount > 0 ? (
-              <div className="action-item"><div className="action-number">1</div><div><strong>Controleer {summary.needsReviewCount} factuur{summary.needsReviewCount === 1 ? "" : "en"}</strong><p className="muted">Die tellen nog niet mee in het financieel overzicht totdat ze betrouwbaar zijn.</p></div></div>
-            ) : (
-              <p className="muted">Er staat vanuit de factuurcontrole voor deze maand niets open dat we hier kunstmatig als taak moeten tonen.</p>
-            )}
-            <Link className="button secondary" href="/facturen">Facturen controleren</Link>
-            <Link className="text-button" href="/deadlines">Bekijk deadlines en vervaldata</Link>
-          </article>
+            <section className="dashboard-lower-grid">
+              <article className="card action-card">
+                <div className="card-heading-row"><h2>Wat moet er nu gebeuren?</h2><span className="soft-badge">Alleen wat nodig is</span></div>
+                {summary.needsReviewCount > 0 ? (
+                  <div className="action-item"><div className="action-number">1</div><div><strong>Controleer {summary.needsReviewCount} factuur{summary.needsReviewCount === 1 ? "" : "en"}</strong><p className="muted">Die tellen nog niet mee in het financieel overzicht totdat ze betrouwbaar zijn.</p></div></div>
+                ) : (
+                  <p className="muted">Er staat vanuit de factuurcontrole voor deze maand niets open dat we hier kunstmatig als taak moeten tonen.</p>
+                )}
+                <Link className="button secondary" href="/facturen">Facturen controleren</Link>
+                <Link className="text-button" href="/deadlines">Bekijk deadlines en vervaldata</Link>
+              </article>
 
-          <article className="card">
-            <h2>Betrouwbaarheid van dit overzicht</h2>
-            <div className="kpi kpi-empty">{summary.reliableInvoiceCount} betrouwbare factuur{summary.reliableInvoiceCount === 1 ? "" : "en"}</div>
-            <p className="muted">{summary.undatedInvoiceCount > 0 ? `${summary.undatedInvoiceCount} factuur${summary.undatedInvoiceCount === 1 ? " heeft" : "en hebben"} nog geen betrouwbare datum en kan daarom nog niet veilig aan deze maand worden toegewezen.` : "Facturen zonder betrouwbare status of met een sterk duplicaatsignaal worden niet stilletjes in de totalen opgenomen."}</p>
-          </article>
+              <article className="card">
+                <h2>Betrouwbaarheid van dit overzicht</h2>
+                <div className="kpi kpi-empty">{summary.reliableInvoiceCount} betrouwbare factuur{summary.reliableInvoiceCount === 1 ? "" : "en"}</div>
+                <p className="muted">{summary.undatedInvoiceCount > 0 ? `${summary.undatedInvoiceCount} factuur${summary.undatedInvoiceCount === 1 ? " heeft" : "en hebben"} nog geen betrouwbare datum en kan daarom nog niet veilig aan deze maand worden toegewezen.` : "Facturen zonder betrouwbare status of met een sterk duplicaatsignaal worden niet stilletjes in de totalen opgenomen."}</p>
+              </article>
 
-          <article className="card">
-            <h2>Recente facturen</h2>
-            {data.recentInvoices.length ? (
-              <div className="dashboard-recent-list">
-                {data.recentInvoices.map((invoice) => (
-                  <div className="dashboard-recent-item" key={invoice.id}>
-                    <div><strong>{invoice.supplier_name ?? invoice.customer_name ?? "Factuur"}</strong><span>{invoice.invoice_date ?? "Datum nog niet betrouwbaar"}</span></div>
-                    <div><strong>{formatMoney(toNumber(invoice.total), invoice.currency)}</strong><span>{recentInvoiceStatus(invoice)}</span></div>
+              <article className="card">
+                <h2>Recente facturen</h2>
+                {data.recentInvoices.length ? (
+                  <div className="dashboard-recent-list">
+                    {data.recentInvoices.map((invoice) => (
+                      <div className="dashboard-recent-item" key={invoice.id}>
+                        <div><strong>{invoice.supplier_name ?? invoice.customer_name ?? "Factuur"}</strong><span>{invoice.invoice_date ?? "Datum nog niet betrouwbaar"}</span></div>
+                        <div><strong>{formatMoney(toNumber(invoice.total), invoice.currency)}</strong><span>{recentInvoiceStatus(invoice)}</span></div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state"><strong>Nog geen facturen toegevoegd</strong><p className="muted">Zodra er facturen zijn, verschijnt hier alleen echte bedrijfsdata.</p></div>
-            )}
-            {data.totalInvoiceCount > data.recentInvoices.length ? <Link className="text-button" href="/facturen">Bekijk alle facturen</Link> : null}
-          </article>
-        </section>
+                ) : (
+                  <div className="empty-state"><strong>Nog geen facturen toegevoegd</strong><p className="muted">Zodra er facturen zijn, verschijnt hier alleen echte bedrijfsdata.</p></div>
+                )}
+                {data.totalInvoiceCount > data.recentInvoices.length ? <Link className="text-button" href="/facturen">Bekijk alle facturen</Link> : null}
+              </article>
+            </section>
+          </>
+        )}
       </main>
 
       <nav className="mobile-nav" aria-label="Mobiele navigatie">
