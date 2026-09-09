@@ -152,6 +152,15 @@ export default async function FacturenPage({ searchParams }: FacturenPageProps) 
             <InvoiceUpload />
             <InvoiceDuplicateAlerts />
             <InvoiceList filters={filters} />
+            <section className="card" aria-labelledby="export-title">
+              <div className="eyebrow">Je data blijft van jou</div>
+              <h2 id="export-title">Gegevens exporteren</h2>
+              <p className="muted">Download een leesbare CSV die je kunt openen in Excel of LibreOffice. We exporteren alleen gegevens van het ene bedrijf dat je nu veilig kunt gebruiken.</p>
+              <div className="dashboard-heading-actions">
+                <a className="button secondary" href="/api/exports/invoices">Exporteer facturen</a>
+                <a className="button secondary" href="/api/exports/company">Exporteer bedrijfsgegevens</a>
+              </div>
+            </section>
           </>
         ) : (
           <CompanyGate state={companyState} />
