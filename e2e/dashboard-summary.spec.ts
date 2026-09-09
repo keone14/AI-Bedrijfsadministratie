@@ -102,3 +102,25 @@ test("confirmed VAT status still never assumes purchase VAT is fully deductible"
   await help.click();
   await expect(page.getByTestId("dashboard-vat").locator("xpath=ancestor::article")).toContainText("niet automatisch als volledig aftrekbaar behandeld");
 });
+
+for (const width of [360, 390, 430, 768, 900, 1024, 1440]) {
+  test(`dashboard remains readable and traceable without horizontal overflow at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width <= 430 ? 800 : 900 });
+    await page.goto("/e2e-dashboard-fixture?confirmed=1");
+
+    await expect(page.getByTestId("dashboard-revenue")).toBeVisible();
+    await expect(page.getByTestId("dashboard-costs")).toBeVisible();
+    await expect(page.getByTestId("dashboard-difference")).toBeVisible();
+    await expect(page.getByTestId("dashboard-vat")).toBeVisible();
+
+    const hasHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+    expect(hasHorizontalOverflow).toBe(false);
+
+    const revenueTrace = page.getByTestId("dashboard-revenue-trace");
+    await revenueTrace.locator("summary").click();
+    await expect(revenueTrace.getByTestId("dashboard-trace-row")).toHaveCount(1);
+    await expect(revenueTrace).toContainText("Klant Alpha");
+  });
+}
