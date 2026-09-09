@@ -211,7 +211,7 @@ export default function InvoiceUpload() {
         <div className="upload-results" aria-live="polite">
           {busy ? <div className="upload-progress">{completedCount} van {results.length} verwerkt</div> : null}
           {!busy && failedFiles.length ? (
-            <div className="upload-progress">
+            <div className="upload-progress invoice-filter-actions">
               <span>{failedFiles.length} {failedFiles.length === 1 ? "factuur is" : "facturen zijn"} niet gelukt. Succesvolle uploads blijven behouden.</span>
               <button className="button secondary" type="button" onClick={() => void handleFiles(failedFiles)}>
                 Probeer alleen mislukte opnieuw
