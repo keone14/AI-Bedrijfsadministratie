@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import InvoiceUpload from "./invoice-upload";
 import InvoiceDuplicateAlerts from "./invoice-duplicate-alerts";
 import InvoiceList, { type InvoiceListFilters } from "./invoice-list";
@@ -44,8 +45,72 @@ type FacturenPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+type CompanyState = "ready" | "no_company" | "multiple_companies" | "error" | "signed_out";
+
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+async function getCompanyState(): Promise<CompanyState> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) return "error";
+    if (!user) return "signed_out";
+
+    const { data: memberships, error: membershipError } = await supabase
+      .from("company_members")
+      .select("company_id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(2);
+
+    if (membershipError) return "error";
+    if (!memberships?.length) return "no_company";
+    if (memberships.length > 1) return "multiple_companies";
+    return "ready";
+  } catch {
+    return "error";
+  }
+}
+
+function CompanyGate({ state }: { state: Exclude<CompanyState, "ready"> }) {
+  const copy = state === "multiple_companies"
+    ? {
+        title: "Kies eerst welk bedrijf je wilt beheren",
+        text: "We laden of uploaden bewust geen facturen zolang er meerdere actieve bedrijven zijn. Zo kunnen gegevens van twee ondernemingen nooit stilletjes door elkaar lopen.",
+        href: "/onboarding",
+        action: "Bedrijfsgegevens bekijken",
+      }
+    : state === "no_company"
+      ? {
+          title: "Stel eerst je bedrijf in",
+          text: "Facturen moeten altijd aan één onderneming gekoppeld zijn. Maak of controleer daarom eerst je bedrijfsprofiel.",
+          href: "/onboarding",
+          action: "Mijn bedrijf instellen",
+        }
+      : state === "signed_out"
+        ? {
+            title: "Meld je opnieuw aan",
+            text: "We konden geen actieve sessie bevestigen. Er worden daarom geen bedrijfsgegevens geladen.",
+            href: "/login",
+            action: "Naar aanmelden",
+          }
+        : {
+            title: "We konden je bedrijfscontext nu niet betrouwbaar controleren",
+            text: "Dit betekent niet dat je facturen weg zijn. We tonen of wijzigen niets totdat de toegangscontrole opnieuw betrouwbaar lukt.",
+            href: "/facturen",
+            action: "Opnieuw proberen",
+          };
+
+  return (
+    <section className="card invoices-empty-state" role="status" aria-live="polite">
+      <div className="empty-icon" aria-hidden="true">!</div>
+      <h2>{copy.title}</h2>
+      <p className="muted">{copy.text}</p>
+      <Link className="button secondary" href={copy.href}>{copy.action}</Link>
+    </section>
+  );
 }
 
 export default async function FacturenPage({ searchParams }: FacturenPageProps) {
@@ -56,6 +121,7 @@ export default async function FacturenPage({ searchParams }: FacturenPageProps) 
     category: firstParam(params.category),
     status: firstParam(params.status),
   };
+  const companyState = await getCompanyState();
 
   return (
     <div className="shell">
@@ -81,9 +147,15 @@ export default async function FacturenPage({ searchParams }: FacturenPageProps) 
           </div>
         </header>
 
-        <InvoiceUpload />
-        <InvoiceDuplicateAlerts />
-        <InvoiceList filters={filters} />
+        {companyState === "ready" ? (
+          <>
+            <InvoiceUpload />
+            <InvoiceDuplicateAlerts />
+            <InvoiceList filters={filters} />
+          </>
+        ) : (
+          <CompanyGate state={companyState} />
+        )}
 
         <section className="card invoice-safety-card" aria-labelledby="upload-status-title">
           <div>
