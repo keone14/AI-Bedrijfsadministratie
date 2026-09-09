@@ -71,8 +71,41 @@ function belgianTodayIso() {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-export async function GET() {
+function validIsoDate(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function exportFilename(from: string | null, to: string | null) {
+  const today = belgianTodayIso();
+  if (from && to) return `facturen-export-${from}-tot-${to}.csv`;
+  if (from) return `facturen-export-vanaf-${from}.csv`;
+  if (to) return `facturen-export-tot-${to}.csv`;
+  return `facturen-export-${today}.csv`;
+}
+
+export async function GET(request: Request) {
   try {
+    const url = new URL(request.url);
+    const from = url.searchParams.get("from")?.trim() || null;
+    const to = url.searchParams.get("to")?.trim() || null;
+
+    if ((from && !validIsoDate(from)) || (to && !validIsoDate(to))) {
+      return NextResponse.json(
+        { error: "Kies een geldige begin- en einddatum voor je export." },
+        { status: 400 },
+      );
+    }
+
+    if (from && to && from > to) {
+      return NextResponse.json(
+        { error: "De begindatum van je export kan niet na de einddatum liggen." },
+        { status: 400 },
+      );
+    }
+
     const supabase = await createSupabaseServerClient();
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
@@ -105,10 +138,15 @@ export async function GET() {
     let offset = 0;
 
     while (true) {
-      const { data, error } = await supabase
+      let query = supabase
         .from("invoices")
         .select("supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, category_id, review_status, created_at")
-        .eq("company_id", companyId)
+        .eq("company_id", companyId);
+
+      if (from) query = query.gte("invoice_date", from);
+      if (to) query = query.lte("invoice_date", to);
+
+      const { data, error } = await query
         .order("invoice_date", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true })
         .range(offset, offset + PAGE_SIZE - 1);
@@ -157,7 +195,7 @@ export async function GET() {
     ]);
 
     const csv = `\uFEFF${[columns, ...rows].map((row) => row.map(safeCsvCell).join(";")).join("\r\n")}`;
-    const filename = `facturen-export-${belgianTodayIso()}.csv`;
+    const filename = exportFilename(from, to);
 
     return new NextResponse(csv, {
       status: 200,
