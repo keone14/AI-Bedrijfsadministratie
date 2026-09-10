@@ -165,7 +165,7 @@ fi
 
 echo "Restoring database backup..."
 docker cp "$WORKDIR/backup.dump" "${DB_CONTAINER}:/tmp/restore.dump" >/dev/null
-docker exec "$DB_CONTAINER" pg_restore -U postgres -d postgres --data-only --disable-triggers --exit-on-error /tmp/restore.dump
+docker exec "$DB_CONTAINER" pg_restore -U postgres -d postgres --data-only --exit-on-error /tmp/restore.dump
 
 echo "Restoring original document to the exact storage path..."
 curl --fail --silent --show-error \
