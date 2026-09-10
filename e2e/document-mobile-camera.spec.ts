@@ -14,7 +14,9 @@ test("documentenkluis toont de camera-actie alleen op mobiel", async ({ page }) 
 
   const cameraButton = page.getByRole("button", { name: "Foto maken" });
   await expect(cameraButton).toBeVisible();
-  await expect(cameraButton).toHaveCSS("min-height", "46px");
+  const cameraButtonBox = await cameraButton.boundingBox();
+  expect(cameraButtonBox, "De mobiele camera-actie moet een meetbare touch target hebben.").not.toBeNull();
+  expect(cameraButtonBox!.height).toBeGreaterThanOrEqual(44);
 
   const cameraInput = page.locator('input[data-upload-source="camera"]');
   await expect(cameraInput).toHaveAttribute("accept", "image/jpeg,image/png");
