@@ -32,6 +32,9 @@ test "$UNPINNED_DEFINERS" = "0"
 PUBLIC_DEFINER_EXECUTE="$(scalar "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef and exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee=0 and a.privilege_type='EXECUTE')")"
 test "$PUBLIC_DEFINER_EXECUTE" = "0"
 
+AUTHENTICATED_DEFINERS="$(run_psql -Atc "select p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')' from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.prosecdef and has_function_privilege('authenticated', p.oid, 'EXECUTE') order by 1" | tr '\n' ';')"
+echo "Authenticated SECURITY DEFINER allowlist observed: ${AUTHENTICATED_DEFINERS:-<none>}"
+
 echo "Checking atomic fixed-window behavior..."
 SCOPE="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 FIRST="$(scalar "select allowed::text || '|' || remaining::text || '|' || retry_after_seconds::text from public.consume_api_rate_limit('${SCOPE}','security_drill',2,60)")"
