@@ -63,7 +63,7 @@ insert into auth.users (
 
 insert into public.companies (id, name, enterprise_number, profile_status) values
 ('${COMPANY_A}', 'Tenant A BV', '0123456789', 'complete'),
-('${COMPANY_B}', 'Tenant B BV', '9876543210', 'complete');
+('${COMPANY_B}', 'Tenant B BV', '1123456789', 'complete');
 
 insert into public.company_members (company_id, user_id, role, status) values
 ('${COMPANY_A}', '${USER_A}', 'owner', 'active'),
