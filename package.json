@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "quality": "npm audit --omit=dev --audit-level=high && npm run typecheck && npm run lint && npm run build && npm run test:e2e"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
