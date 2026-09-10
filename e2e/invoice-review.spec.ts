@@ -104,7 +104,7 @@ test("expired session is explained without falsely confirming the invoice", asyn
   await page.getByRole("button", { name: "Ja, dit klopt" }).click();
 
   await expect.poll(() => confirmAttempts).toBe(1);
-  await expect(page.getByRole("alert")).toContainText("Je sessie is verlopen. Log opnieuw in.");
+  await expect(page.locator(".invoice-action-message.is-error")).toContainText("Je sessie is verlopen. Log opnieuw in.");
   await expect(page.getByRole("button", { name: "Ja, dit klopt" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Aanpassen" })).toBeEnabled();
 });
@@ -127,7 +127,7 @@ test("failed correction keeps the user's edits and gives a safe retry path", asy
   await page.getByRole("button", { name: "Aanpassingen opslaan" }).click();
 
   await expect.poll(() => saveAttempts).toBe(1);
-  await expect(page.getByRole("alert")).toContainText("Je aanpassingen konden niet betrouwbaar worden opgeslagen. Probeer opnieuw.");
+  await expect(page.locator(".invoice-action-message.is-error")).toContainText("Je aanpassingen konden niet betrouwbaar worden opgeslagen. Probeer opnieuw.");
   await expect(page.locator("#correction-supplier")).toHaveValue("Leverancier na serverfout");
   await expect(page.getByRole("button", { name: "Aanpassingen opslaan" })).toBeEnabled();
   await expect(page.getByRole("button", { name: "Annuleren" })).toBeEnabled();
