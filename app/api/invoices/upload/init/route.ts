@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveCompany } from "@/lib/company/active-company";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const allowedExtensions = new Set(["pdf", "jpg", "jpeg", "png"]);
@@ -53,29 +54,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Een factuur mag maximaal 10 MB groot zijn." }, { status: 400 });
   }
 
-  const { data: memberships, error: membershipError } = await supabase
-    .from("company_members")
-    .select("company_id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(2);
-
-  if (membershipError) {
+  const company = await resolveActiveCompany(supabase, user.id);
+  if (company.state === "error") {
     return NextResponse.json({ error: "We konden je bedrijf nu niet betrouwbaar bepalen. Probeer opnieuw." }, { status: 500 });
   }
-
-  if (!memberships?.length) {
+  if (company.state === "no_company") {
     return NextResponse.json({ error: "Stel eerst je bedrijf in voordat je een factuur uploadt." }, { status: 409 });
   }
-
-  if (memberships.length > 1) {
-    return NextResponse.json(
-      { error: "Je hebt toegang tot meerdere bedrijven. Kies eerst welk bedrijf je wilt gebruiken voordat je een factuur uploadt." },
-      { status: 409 },
-    );
+  if (company.state === "selection_required") {
+    return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat je een factuur uploadt." }, { status: 409 });
   }
 
-  const companyId = memberships[0].company_id as string;
+  const companyId = company.companyId;
   const documentId = randomUUID();
   const canonicalExtension = extension === "jpeg" ? "jpg" : extension;
   const storagePath = `company/${companyId}/documents/${documentId}/original.${canonicalExtension}`;
