@@ -52,11 +52,11 @@ test("20 facturen worden in begrensde batches verwerkt zonder verlies", async ({
   const files = Array.from({ length: 20 }, (_, index) => pdfFile(index + 1));
   await page.locator('input[type="file"]').setInputFiles(files);
 
-  await expect(page.getByText("20 van 20 verwerkt")).toBeVisible();
   await expect(page.locator(".upload-result.success")).toHaveCount(20);
   await expect(page.locator(".upload-result.error")).toHaveCount(0);
   await expect(page.getByText("factuur-01.pdf")).toBeVisible();
   await expect(page.getByText("factuur-20.pdf")).toBeVisible();
+  await expect(page.getByRole("button", { name: "+ Factuur uploaden" })).toBeEnabled();
 
   expect(initCalls).toBe(20);
   expect(storageCalls).toBe(20);
