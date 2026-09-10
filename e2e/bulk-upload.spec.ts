@@ -52,6 +52,8 @@ test("20 facturen worden in begrensde batches verwerkt zonder verlies", async ({
   const files = Array.from({ length: 20 }, (_, index) => pdfFile(index + 1));
   await page.locator('input[type="file"]').setInputFiles(files);
 
+  await expect(page.getByText("20 facturen zijn veilig toegevoegd.")).toBeVisible();
+  await expect(page.getByText("Je bent klaar met uploaden. Controleer hieronder alleen facturen die om nakijken vragen.")).toBeVisible();
   await expect(page.locator(".upload-result.success")).toHaveCount(20);
   await expect(page.locator(".upload-result.error")).toHaveCount(0);
   await expect(page.getByText("factuur-01.pdf")).toBeVisible();
@@ -92,6 +94,7 @@ test("bij één mislukking worden alleen mislukte facturen opnieuw verstuurd", a
   await expect(page.getByText("1 factuur is niet gelukt. Succesvolle uploads blijven behouden.")).toBeVisible();
   await expect(page.locator(".upload-result.success")).toHaveCount(19);
   await page.getByRole("button", { name: "Probeer alleen mislukte opnieuw" }).click();
+  await expect(page.getByText("1 factuur is veilig toegevoegd.")).toBeVisible();
   await expect(page.locator(".upload-result.success")).toHaveCount(1);
   expect(initByName.get("factuur-07.pdf")).toBe(2);
   for (let index = 1; index <= 20; index += 1) {
