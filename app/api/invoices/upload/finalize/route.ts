@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -140,8 +141,9 @@ export async function POST(request: Request) {
 
   const sha256 = createHash("sha256").update(buffer).digest("hex");
   const displayName = safeDisplayName(originalFilename);
+  const admin = createSupabaseAdminClient();
 
-  const { data: invoiceId, error: registerError } = await supabase.rpc("register_validated_invoice_upload", {
+  const { data: invoiceId, error: registerError } = await admin.rpc("register_validated_invoice_upload", {
     target_company_id: companyId,
     target_document_id: documentId,
     target_storage_path: storagePath,
@@ -150,6 +152,7 @@ export async function POST(request: Request) {
     detected_mime: detectedMime,
     sha256_hash: sha256,
     validated_size_bytes: buffer.byteLength,
+    target_actor_user_id: user.id,
   });
 
   if (registerError) {
