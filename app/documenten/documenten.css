@@ -62,6 +62,7 @@
 .document-type-control > span { font-size: .78rem; line-height: 1.4; text-align: right; }
 .document-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
 .document-actions .button { min-height: 44px; padding: 9px 12px; }
+.mobile-document-camera { display: none; }
 .documents-state { display: grid; gap: 12px; justify-items: start; }
 .documents-state h2, .documents-state p { margin: 0; }
 .documents-safety { line-height: 1.55; }
@@ -86,6 +87,7 @@
 @media (max-width: 700px) {
   .document-upload-card { padding: 16px; }
   .document-upload-heading .button { width: 100%; justify-content: center; }
+  .mobile-document-camera { display: inline-flex; }
   .document-route-note .button { width: 100%; justify-content: center; }
   .document-upload-dropzone { min-height: 104px; padding: 18px 14px; }
   .document-upload-note { grid-template-columns: 1fr; gap: 4px; }
