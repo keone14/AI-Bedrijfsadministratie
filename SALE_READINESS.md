@@ -1,14 +1,13 @@
 # AI Bedrijfsadministratie - Sale Readiness
 
-Last reviewed: 2026-09-09  
-Branch: `bootstrap-v1`  
-Reviewed commit before this document: `953bef80c7da2b7bf227472bfb3d11a88b039c14`
+Last reviewed: 2026-09-10  
+Branch: `bootstrap-v1`
 
 ## Status
 
 **NIET VERKOOPKLAAR**
 
-De kern van V1 is duidelijk en meerdere veiligheids- en betrouwbaarheidsmaatregelen zijn aanwezig, maar een koper mag het product nog niet als technisch afgerond beschouwen. De belangrijkste ontbrekende bewijzen zijn staging, echte tenant/RLS-integratietests, de volledige 20-facturenflow, restore-testing en een eenduidige actieve bedrijfscontext.
+De kern van V1 is duidelijk en de belangrijkste lokale quality-, bulk-, actieve-bedrijfscontext- en restore-bewijzen zijn nu aanwezig. De grootste resterende verkoopblokkering is een echte, gescheiden cloud-stagingomgeving. Zonder die omgeving kunnen de laatste RLS/storage- en volledige database-integratietests niet eerlijk als production-like bewezen worden gemarkeerd.
 
 Deze status is bewust streng. Verkoopklaar betekent hier: overdraagbaar, reproduceerbaar, aantoonbaar veilig en testbaar zonder kennis die alleen bij de huidige eigenaar zit.
 
@@ -37,38 +36,41 @@ Belangrijke productprincipes:
 - Vercel voor webhosting/deployments
 - Zod voor schema-validatie
 - Playwright voor E2E-tests
-- GitHub Actions voor CI
+- GitHub Actions voor CI en lokale Supabase Restore Drill
 
-### Reeds zichtbare overdraagbare onderdelen
+### Reeds overdraagbare onderdelen
 
 - `.env.example` voor configuratie zonder echte secrets in de repository;
-- versioned Supabase migrations;
+- versioned Supabase migrations die lokaal vanaf nul worden uitgevoerd in de Restore Drill;
 - private documentflow en server-side documenttoegang;
 - server-side beveiligde factuuracties;
+- centrale actieve bedrijfscontext voor gebruikers met meerdere ondernemingen;
 - exports voor bedrijfsgegevens, facturen en originele documenten;
 - CI met dependency audit, typecheck, lint, production build en browser-E2E;
+- exacte 20-facturen browserproef met gedeeltelijke fout + gerichte retry;
 - responsive tests voor kernflows;
+- reproduceerbare lokale backup/wis/restore-drill voor app-owned tenantdata en private originele documentbytes;
 - bestaande Source of Truth voor product, UX, architectuur en Belgische regelbronnen.
 
 ## Harde verkoopblokkeringen
 
 ### P0 - Moet opgelost of aantoonbaar getest zijn vóór verkoopklaar
 
-- [ ] **Stagingomgeving beschikbaar** met gescheiden database/secrets en zonder productieklantdata.
-- [ ] **RLS/tenant-isolatie integratietests**: gebruiker A kan data van bedrijf B nooit lezen, wijzigen of downloaden.
-- [ ] **Storage-isolatie getest**: verkeerd `company_id`, verkeerd storage path en directe document-URL geven nooit cross-company toegang.
-- [ ] **Volledige 20-facturen-E2E** op een schone stagingdatabase, inclusief mislukte uploads, retries, duplicaten, correcties en dashboardupdate.
-- [ ] **Backup + restore-test** uitgevoerd. Alleen een download/export of backup hebben telt niet als herstelbewijs.
-- [ ] **Eenduidige actieve bedrijfscontext** voor gebruikers met meerdere ondernemingen. Geen route mag stilletjes het eerste bedrijf kiezen.
-- [ ] **Secrets-audit**: geen productiegeheim in client, repository, logs of testfixtures.
-- [ ] **Kritieke foutscenario's** getest: verlopen sessie, databasefout, storagefout, gedeeltelijke upload en retry.
+- [ ] **Dedicated cloud stagingomgeving beschikbaar** met gescheiden database/secrets en zonder productieklantdata. Op 2026-09-10 bevestigde Supabase €0/maand voor een extra project, maar creatie werd geblokkeerd door de limiet van twee actieve gratis projecten. Er is niets gepauzeerd, verwijderd of geüpgraded.
+- [ ] **RLS/tenant-isolatie integration proof op dedicated staging**: gebruiker A kan data van bedrijf B nooit lezen, wijzigen of downloaden. Code en eerdere synthetische checks zijn positief, maar dedicated-stagingbewijs ontbreekt.
+- [ ] **Storage-isolatie integration proof op dedicated staging**: verkeerd `company_id`, verkeerd storage path en directe document-URL geven nooit cross-company toegang. Lokale/codechecks vervangen dit production-like bewijs niet.
+- [ ] **Volledige 20-facturen-flow op een schone dedicated stagingdatabase**, inclusief uploads, retries, duplicaten, correcties en dashboardupdate. De browserbulkflow is wel bewezen: exact 20 uploads werken zonder verlies en bij één fout wordt alleen het mislukte bestand opnieuw verstuurd.
+- [x] **Backup + restore-test voor app-owned operationele data en private originele documenten**. GitHub Actions bouwt lokale Supabase vanaf nul, maakt een echte PostgreSQL-backup, wist synthetische tenantdata en het originele storageobject, herstelt beide en controleert kernwaarden plus SHA-256. Dit bewijst niet volledige managed Supabase cloud/Auth disaster recovery.
+- [x] **Eenduidige actieve bedrijfscontext**. De gekozen onderneming wordt server-side tegen actieve memberships gevalideerd en gevoelige kernflows gebruiken expliciet de gekozen `company_id`; routes mogen niet stilletjes het eerste bedrijf kiezen.
+- [ ] **Secrets-audit compleet voor commerciële overdracht**: de CI blokkeert bekende secretpatronen en production secrets horen niet in client/repository, maar vóór closing blijft een finale account- en secretrotatie/inventory nodig.
+- [x] **Kritieke gebruikersfoutscenario's in browsertests**: verlopen sessie, tijdelijke bevestigingsfout, mislukte correctie en gedeeltelijke bulk-upload + gerichte retry hebben regressietests.
 
 ### P1 - Nodig voor professionele overdracht
 
-- [ ] Installatie vanaf lege machine stap voor stap reproduceren.
-- [ ] Alle vereiste environment variables documenteren zonder waarden/secrets.
-- [ ] Database migrations vanaf lege stagingdatabase volledig reproduceerbaar maken.
-- [ ] Deploymentprocedure van repository tot preview/staging documenteren en testen.
+- [ ] Installatie vanaf lege machine stap voor stap als koper-drill uitvoeren.
+- [x] Vereiste environment variables gedocumenteerd zonder echte waarden/secrets (`.env.example`, README, HANDOVER).
+- [x] Database migrations lokaal vanaf lege database reproduceerbaar. De Restore Drill ontdekte en corrigeerde bovendien een dubbele migrationversie (`20260902140500`).
+- [ ] Deploymentprocedure van repository tot preview/dedicated staging documenteren en volledig testen.
 - [ ] Basis monitoring/observability vastleggen: mislukte uploads, processing errors, unauthorized attempts en API-fouten.
 - [ ] Rate limiting/abuse protection toevoegen waar gevoelige serverroutes dit nodig hebben, zonder onbetrouwbare in-memory serverless state.
 - [ ] Retentie- en verwijderbeleid voor klantdata vastleggen.
@@ -79,18 +81,29 @@ Belangrijke productprincipes:
 
 - [ ] V1 Assistent veilig afronden of expliciet uit de verkoopbare V1-scope verwijderen via Source of Truth-besluit.
 - [ ] Alleen officieel bevestigde Belgische deadlines activeren, met bron, geldigheid en laatste verificatiedatum.
-- [ ] Eindcontrole toegankelijkheid en responsive gedrag op 360, 390/430, 768-900, 1024 en 1440 px.
+- [ ] Finale toegankelijkheids- en responsive controle op 360, 390/430, 768-900, 1024 en 1440 px over alle kernpagina's.
 
-## Bewijs dat al aanwezig is
+## Actueel bewijs
 
-Op commit `953bef80c7da2b7bf227472bfb3d11a88b039c14` is de GitHub Actions CI-run succesvol afgerond. Dat is positief bewijs voor de huidige codekwaliteit, maar het vervangt geen echte staging-, RLS-, restore- of bulk-integratietests.
+### CI / browser
 
-De repository bevat daarnaast serverroutes voor exports van:
-- bedrijfsgegevens;
-- facturen;
-- originele documenten.
+De normale GitHub Actions quality-gate draait op `bootstrap-v1` en controleert:
+- obvious committed secret patterns;
+- installatie en production dependency audit;
+- TypeScript;
+- lint;
+- production build;
+- Playwright desktop en mobiel.
 
-Dat ondersteunt data-eigendom en verlaagt lock-in, maar de exportflow is geen volledige disaster-recoveryprocedure.
+De 20-facturenproef controleert exact 20 init-, storage-, finalize- en extractiestappen. Een aparte foutproef laat één factuur falen en bewijst dat succesvolle uploads behouden blijven en alleen de mislukte factuur opnieuw wordt verstuurd.
+
+### Fresh database + restore
+
+`Restore Drill` gebruikt lokale Supabase in GitHub Actions. Daardoor kan de repository zonder productie of betaald cloudproject aantonen dat migrations vanaf nul toepasbaar zijn en dat app-owned tenantdata plus een private origineel bestand daadwerkelijk hersteld kunnen worden na gesimuleerd verlies.
+
+De eerste restore-run vond een echte releaseblokkering: twee migrations deelden dezelfde versie. Die fout is op `bootstrap-v1` gecorrigeerd door de currency-migration uniek te nummeren als `20260902140600`.
+
+De drill is bewust beperkt. Hij bewijst geen volledige Supabase-cloudproject-, Auth- of regioherstelprocedure.
 
 ## Handover checklist voor een koper
 
@@ -102,8 +115,8 @@ Een overdracht is pas professioneel wanneer de nieuwe eigenaar zonder mondelinge
 - welke Vercel projecten en environments bestaan;
 - welke environment variables vereist zijn;
 - hoe migrations worden toegepast en terug gecontroleerd;
-- hoe CI en E2E worden uitgevoerd;
-- hoe backups worden gemaakt en teruggezet;
+- hoe CI, E2E en Restore Drill worden uitgevoerd;
+- wat de restore-drill wel en niet bewijst;
 - hoe tenant-isolatie wordt getest;
 - hoe exports werken;
 - waar officiële Belgische regelbronnen worden bijgehouden;
@@ -134,8 +147,8 @@ Pas gebruiken wanneer alle P0-punten technisch zijn bewezen en de belangrijkste 
 Pas gebruiken wanneer:
 - V1-kernflows reproduceerbaar werken;
 - kritieke security- en tenant-tests aantoonbaar groen zijn;
-- staging bestaat;
-- backup én restore getest zijn;
+- dedicated staging bestaat;
+- backup én restore binnen de afgesproken scope getest zijn en resterende cloud-recoveryrisico's expliciet zijn;
 - deployment en migrations reproduceerbaar zijn;
 - koper-facing handoverdocumentatie voldoende is;
 - bekende kritieke securityproblemen ontbreken;
