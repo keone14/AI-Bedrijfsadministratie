@@ -1,0 +1,29 @@
+name: Tenant Isolation Drill
+
+on:
+  push:
+    branches: [bootstrap-v1]
+    paths:
+      - "supabase/**"
+      - "scripts/tenant-isolation-drill.sh"
+      - ".github/workflows/tenant-isolation.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "scripts/tenant-isolation-drill.sh"
+      - ".github/workflows/tenant-isolation.yml"
+  workflow_dispatch:
+
+jobs:
+  tenant-isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Prove tenant and private-storage isolation
+        shell: bash
+        run: bash scripts/tenant-isolation-drill.sh
