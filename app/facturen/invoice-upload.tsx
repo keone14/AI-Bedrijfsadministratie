@@ -3,6 +3,7 @@
 import { DragEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import styles from "./invoice-upload.module.css";
 
 const MAX_FILES = 20;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -182,7 +183,7 @@ export default function InvoiceUpload() {
         <div className="invoice-filter-actions">
           <a className="button secondary" href="/api/exports/invoices">Exporteer facturen</a>
           <button
-            className="button secondary mobile-camera-upload"
+            className={`button secondary ${styles.mobileCameraUpload}`}
             type="button"
             disabled={busy}
             onClick={() => cameraInputRef.current?.click()}
