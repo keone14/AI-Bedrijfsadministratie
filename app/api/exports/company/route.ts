@@ -5,7 +5,10 @@ const columns = ["Gegeven", "Waarde"] as const;
 
 function safeCsvCell(value: unknown) {
   let text = value === null || value === undefined ? "" : String(value);
-  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+
+  // OWASP CSV Injection: also treat control characters and full-width formula markers as unsafe starts.
+  if (/^[=+\-@\t\r\n\uFF1D\uFF0B\uFF0D\uFF20]/.test(text)) text = `'${text}`;
+
   return `"${text.replace(/"/g, '""')}"`;
 }
 
