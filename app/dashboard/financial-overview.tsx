@@ -43,7 +43,7 @@ function TraceList({ lines, invoices, currency }: { lines: DashboardTraceLine[];
 
 export default function FinancialOverview({ summary, traceInvoices = [], vatStatus }: { summary: DashboardFinancialSummary; traceInvoices?: DashboardTraceInvoice[]; vatStatus: DashboardVatStatus }) {
   const invoiceMap = new Map(traceInvoices.map((invoice) => [invoice.id, invoice]));
-  const vatProfileValue = vatStatus === "no" ? "Volgens profiel niet btw-plichtig" : vatStatus === "unknown" ? "Btw-status niet bevestigd" : "Nog te controleren";
+  const vatProfileValue = vatStatus === "no" ? "Geen btw-schatting volgens profiel" : vatStatus === "unknown" ? "Btw-status niet bevestigd" : "Nog geen betrouwbare btw-schatting";
 
   const metrics = [
     {
