@@ -158,14 +158,15 @@ export default function OnboardingPage() {
         if (companyError) throw companyError;
         if (cancelled) return;
 
+        const savedVatStatus = company.vat_status ?? "unknown";
         setForm({
           companyName: company.name ?? "",
           enterpriseNumber: company.enterprise_number ?? "unknown",
           startDate: company.start_date ?? "unknown",
           legalForm: company.legal_form ?? "unknown",
           occupationStatus: company.occupation_status ?? "unknown",
-          vatStatus: company.vat_status ?? "unknown",
-          vatFrequency: company.vat_frequency ?? "unknown",
+          vatStatus: savedVatStatus,
+          vatFrequency: savedVatStatus === "no" ? "not_applicable" : company.vat_frequency ?? "unknown",
           activity: company.activity_description_raw ?? "unknown",
           sells: company.sells_products_services ?? "unknown",
           employeeStatus: company.employee_status ?? "unknown",
@@ -186,6 +187,19 @@ export default function OnboardingPage() {
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
+    setNotice(null);
+  }
+
+  function updateVatStatus(value: string) {
+    setForm((current) => ({
+      ...current,
+      vatStatus: value,
+      vatFrequency: value === "no" ? "not_applicable" : value === "unknown" ? "unknown" : current.vatFrequency,
+    }));
+    if (value === "no") {
+      setNotice("Op basis van je antwoord vragen we geen periodiek btw-aangifteritme. Heb je wel een btw-nummer maar gebruik je een vrijstellingsregeling? Kies dan ‘Ja’ bij btw-status en ‘Niet van toepassing / vrijgesteld’ bij aangifteritme.");
+      return;
+    }
     setNotice(null);
   }
 
@@ -221,6 +235,12 @@ export default function OnboardingPage() {
     if (enterpriseNumber && enterpriseNumber.length !== 10) {
       setNotice("Een Belgisch ondernemingsnummer moet 10 cijfers bevatten. Controleer het nummer in de KBO of kies ‘Ik weet dit niet’. ");
       setStep(1);
+      return;
+    }
+
+    if (form.vatStatus === "no" && form.vatFrequency !== "not_applicable") {
+      setNotice("Je btw-status en aangifteritme spreken elkaar tegen. Controleer je btw-stap opnieuw; we slaan geen tegenstrijdige btw-gegevens op.");
+      setStep(3);
       return;
     }
 
@@ -464,29 +484,37 @@ export default function OnboardingPage() {
                 unknown="Kies “Ik weet het niet”. Dan tonen we geen definitieve btw-deadlines of btw-conclusies tot je status bevestigd is."
               />
               <div className="choice-grid three">
-                <Choice active={form.vatStatus === "yes"} onClick={() => update("vatStatus", "yes")}><strong>Ja</strong><span>Mijn btw-status is bevestigd als btw-plichtig.</span></Choice>
-                <Choice active={form.vatStatus === "no"} onClick={() => update("vatStatus", "no")}><strong>Nee</strong><span>Mijn btw-status is bevestigd als niet btw-plichtig.</span></Choice>
-                <Choice active={form.vatStatus === "unknown"} onClick={() => update("vatStatus", "unknown")}><strong>Ik weet het niet</strong><span>We tonen voorlopig geen definitieve btw-deadlines.</span></Choice>
+                <Choice active={form.vatStatus === "yes"} onClick={() => updateVatStatus("yes")}><strong>Ja</strong><span>Mijn btw-status is bevestigd als btw-plichtig.</span></Choice>
+                <Choice active={form.vatStatus === "no"} onClick={() => updateVatStatus("no")}><strong>Nee</strong><span>Mijn btw-status is bevestigd als niet btw-plichtig.</span></Choice>
+                <Choice active={form.vatStatus === "unknown"} onClick={() => updateVatStatus("unknown")}><strong>Ik weet het niet</strong><span>We tonen voorlopig geen definitieve btw-deadlines.</span></Choice>
               </div>
             </div>
 
-            <div className="field">
-              <label htmlFor="vatFrequency">Hoe vaak doe je een periodieke btw-aangifte?</label>
-              <select className="input" id="vatFrequency" value={form.vatFrequency} onChange={(e) => update("vatFrequency", e.target.value)}>
-                <option value="">Kies een antwoord</option>
-                <option value="monthly">Maandelijks</option>
-                <option value="quarterly">Per kwartaal</option>
-                <option value="not_applicable">Niet van toepassing / vrijgesteld</option>
-                <option value="unknown">Ik weet het niet</option>
-              </select>
-              <HelpDetails
-                meaning="Dit is het ritme waarmee je gewone periodieke btw-aangiften indient: per maand, per kwartaal, of niet volgens dit regime."
-                why="We hebben dit nodig om later alleen deadlines te tonen die bij jouw echte aangifteritme passen."
-                check={<>Open je eerdere aangiften in <OfficialLink href="https://financien.belgium.be/nl/E-services/Intervat">Intervat / MyMinfin</OfficialLink>. De aangifteperiodes tonen of je maandelijks of per kwartaal indient. FOD Financiën bevestigt dat de regels en deadlines per regime verschillen.</>}
-                example="Als je aangiften Q1, Q2, Q3 en Q4 ziet, dien je per kwartaal in. Zie je elke maand een aparte periode, dan is het maandelijks."
-                unknown="Kies “Ik weet het niet”. We berekenen dan geen definitieve btw-deadline totdat je aangifteritme bevestigd is."
-              />
-            </div>
+            {form.vatStatus === "no" ? (
+              <div className="verification-guide" role="note">
+                <strong>Periodieke btw-aangifte staat op niet van toepassing.</strong>
+                <p>Dat volgt alleen uit jouw antwoord hierboven. Heb je wel een btw-nummer maar gebruik je bijvoorbeeld de vrijstellingsregeling voor kleine ondernemingen? Dan ben je volgens FOD Financiën nog btw-belastingplichtige, maar dien je geen periodieke aangiften in. Kies in dat geval “Ja” bij btw-status en “Niet van toepassing / vrijgesteld” hieronder.</p>
+                <p><OfficialLink href="https://financien.belgium.be/nl/ondernemingen/btw/btw-plicht/vrijstellingsregeling">Controleer de vrijstellingsregeling bij FOD Financiën</OfficialLink>.</p>
+              </div>
+            ) : (
+              <div className="field">
+                <label htmlFor="vatFrequency">Hoe vaak doe je een periodieke btw-aangifte?</label>
+                <select className="input" id="vatFrequency" value={form.vatFrequency} onChange={(e) => update("vatFrequency", e.target.value)}>
+                  <option value="">Kies een antwoord</option>
+                  <option value="monthly">Maandelijks</option>
+                  <option value="quarterly">Per kwartaal</option>
+                  <option value="not_applicable">Niet van toepassing / vrijgesteld</option>
+                  <option value="unknown">Ik weet het niet</option>
+                </select>
+                <HelpDetails
+                  meaning="Dit is het ritme waarmee je gewone periodieke btw-aangiften indient: per maand, per kwartaal, of niet volgens dit regime."
+                  why="We hebben dit nodig om later alleen deadlines te tonen die bij jouw echte aangifteritme passen."
+                  check={<>Open je eerdere aangiften in <OfficialLink href="https://financien.belgium.be/nl/E-services/Intervat">Intervat / MyMinfin</OfficialLink>. De aangifteperiodes tonen of je maandelijks of per kwartaal indient. FOD Financiën bevestigt dat de regels en deadlines per regime verschillen.</>}
+                  example="Als je aangiften Q1, Q2, Q3 en Q4 ziet, dien je per kwartaal in. Zie je elke maand een aparte periode, dan is het maandelijks."
+                  unknown="Kies “Ik weet het niet”. We berekenen dan geen definitieve btw-deadline totdat je aangifteritme bevestigd is."
+                />
+              </div>
+            )}
           </section>
         ) : null}
 
