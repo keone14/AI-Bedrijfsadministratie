@@ -41,8 +41,8 @@ type CategoryRow = { id: string; simple_label: string };
 function safeCsvCell(value: unknown) {
   let text = value === null || value === undefined ? "" : String(value);
 
-  // Prevent spreadsheet formula injection when the CSV is opened in Excel/LibreOffice.
-  if (/^[=+\-@]/.test(text)) text = `'${text}`;
+  // OWASP CSV Injection: also treat control characters and full-width formula markers as unsafe starts.
+  if (/^[=+\-@\t\r\n\uFF1D\uFF0B\uFF0D\uFF20]/.test(text)) text = `'${text}`;
 
   return `"${text.replace(/"/g, '""')}"`;
 }
