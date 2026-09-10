@@ -7,11 +7,15 @@ on:
       - "supabase/**"
       - "scripts/restore-drill.sh"
       - ".github/workflows/restore-drill.yml"
+      - "HANDOVER.md"
+      - "SALE_READINESS.md"
   pull_request:
     paths:
       - "supabase/**"
       - "scripts/restore-drill.sh"
       - ".github/workflows/restore-drill.yml"
+      - "HANDOVER.md"
+      - "SALE_READINESS.md"
   workflow_dispatch:
 
 jobs:
