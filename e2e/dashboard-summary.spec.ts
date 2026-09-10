@@ -12,7 +12,7 @@ test("dashboard excludes uncertain invoice and updates after confirmation", asyn
   await expect(page.getByTestId("dashboard-revenue")).toContainText("1.000,00");
   await expect(page.getByTestId("dashboard-costs")).toContainText("200,00");
   await expect(page.getByTestId("dashboard-difference")).toContainText("800,00");
-  await expect(page.getByTestId("dashboard-vat")).toHaveText("Nog te controleren");
+  await expect(page.getByTestId("dashboard-vat")).toHaveText("Nog geen betrouwbare btw-schatting");
 
   const hasHorizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(hasHorizontalOverflow).toBe(false);
@@ -84,7 +84,7 @@ test("confirmed credit note reduces reliable non-VAT totals", async ({ page }) =
   await expect(page.getByTestId("dashboard-revenue")).toContainText("900,00");
   await expect(page.getByTestId("dashboard-costs")).toContainText("200,00");
   await expect(page.getByTestId("dashboard-difference")).toContainText("700,00");
-  await expect(page.getByTestId("dashboard-vat")).toHaveText("Nog te controleren");
+  await expect(page.getByTestId("dashboard-vat")).toHaveText("Nog geen betrouwbare btw-schatting");
 });
 
 test("dashboard does not show a VAT estimate before VAT status is confirmed", async ({ page }) => {
@@ -97,7 +97,7 @@ test("dashboard does not show a VAT estimate before VAT status is confirmed", as
 
 test("confirmed VAT status still never assumes purchase VAT is fully deductible", async ({ page }) => {
   await page.goto("/e2e-dashboard-fixture?confirmed=1&vat=yes");
-  await expect(page.getByTestId("dashboard-vat")).toHaveText("Nog te controleren");
+  await expect(page.getByTestId("dashboard-vat")).toHaveText("Nog geen betrouwbare btw-schatting");
   const help = page.getByTestId("dashboard-vat").locator("xpath=ancestor::article").getByText("Leg dit simpel uit");
   await help.click();
   await expect(page.getByTestId("dashboard-vat").locator("xpath=ancestor::article")).toContainText("niet automatisch als volledig aftrekbaar behandeld");
