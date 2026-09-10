@@ -88,6 +88,51 @@ test("cancel discards unsaved invoice edits", async ({ page }) => {
   await expect(page.locator("#correction-supplier")).toHaveValue("Voorbeeld Leverancier BV");
 });
 
+test("expired session is explained without falsely confirming the invoice", async ({ page }) => {
+  let confirmAttempts = 0;
+
+  await page.route("**/api/invoices/e2e-invoice/confirm", async (route) => {
+    confirmAttempts += 1;
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Je sessie is verlopen. Log opnieuw in." }),
+    });
+  });
+
+  await page.goto("/e2e-review-fixture");
+  await page.getByRole("button", { name: "Ja, dit klopt" }).click();
+
+  await expect.poll(() => confirmAttempts).toBe(1);
+  await expect(page.getByRole("alert")).toContainText("Je sessie is verlopen. Log opnieuw in.");
+  await expect(page.getByRole("button", { name: "Ja, dit klopt" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Aanpassen" })).toBeEnabled();
+});
+
+test("failed correction keeps the user's edits and gives a safe retry path", async ({ page }) => {
+  let saveAttempts = 0;
+
+  await page.route("**/api/invoices/e2e-invoice/correct", async (route) => {
+    saveAttempts += 1;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Je aanpassingen konden niet betrouwbaar worden opgeslagen. Probeer opnieuw." }),
+    });
+  });
+
+  await page.goto("/e2e-review-fixture");
+  await page.getByRole("button", { name: "Aanpassen" }).click();
+  await page.locator("#correction-supplier").fill("Leverancier na serverfout");
+  await page.getByRole("button", { name: "Aanpassingen opslaan" }).click();
+
+  await expect.poll(() => saveAttempts).toBe(1);
+  await expect(page.getByRole("alert")).toContainText("Je aanpassingen konden niet betrouwbaar worden opgeslagen. Probeer opnieuw.");
+  await expect(page.locator("#correction-supplier")).toHaveValue("Leverancier na serverfout");
+  await expect(page.getByRole("button", { name: "Aanpassingen opslaan" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Annuleren" })).toBeEnabled();
+});
+
 for (const width of [360, 390, 430, 768, 900, 1024, 1440]) {
   test(`invoice review stays usable without horizontal overflow at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width <= 430 ? 800 : 900 });
