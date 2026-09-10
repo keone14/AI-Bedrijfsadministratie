@@ -49,8 +49,18 @@ test("20 facturen worden in begrensde batches verwerkt zonder verlies", async ({
   });
 
   await page.goto("/e2e-bulk-upload-fixture");
+
+  const cameraInput = page.locator('input[data-upload-source="camera"]');
+  await expect(cameraInput).toHaveAttribute("capture", "environment");
+  await expect(cameraInput).toHaveAttribute("accept", "image/jpeg,image/png");
+  if ((page.viewportSize()?.width ?? 1024) <= 800) {
+    await expect(page.getByRole("button", { name: "Foto maken" })).toBeVisible();
+  } else {
+    await expect(page.getByRole("button", { name: "Foto maken", includeHidden: true })).toBeHidden();
+  }
+
   const files = Array.from({ length: 20 }, (_, index) => pdfFile(index + 1));
-  await page.locator('input[type="file"]').setInputFiles(files);
+  await page.locator('input[data-upload-source="files"]').setInputFiles(files);
 
   await expect(page.getByText("20 facturen zijn veilig toegevoegd.")).toBeVisible();
   await expect(page.getByText("Je bent klaar met uploaden. Controleer hieronder alleen facturen die om nakijken vragen.")).toBeVisible();
@@ -90,7 +100,7 @@ test("bij één mislukking worden alleen mislukte facturen opnieuw verstuurd", a
   await page.route("**/api/invoices/*/extract", (route) => route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify({ status: "processing" }) }));
 
   await page.goto("/e2e-bulk-upload-fixture");
-  await page.locator('input[type="file"]').setInputFiles(Array.from({ length: 20 }, (_, index) => pdfFile(index + 1)));
+  await page.locator('input[data-upload-source="files"]').setInputFiles(Array.from({ length: 20 }, (_, index) => pdfFile(index + 1)));
   await expect(page.getByText("1 factuur is niet gelukt. Succesvolle uploads blijven behouden.")).toBeVisible();
   await expect(page.locator(".upload-result.success")).toHaveCount(19);
   await page.getByRole("button", { name: "Probeer alleen mislukte opnieuw" }).click();
