@@ -2,6 +2,7 @@ import { after, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveActiveCompany } from "@/lib/company/active-company";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { extractInvoiceWithOpenAI } from "@/lib/invoices/openai-extractor";
 import { extractSyntheticInvoiceFixture } from "@/lib/invoices/synthetic-fixture-extractor";
 
@@ -38,6 +39,21 @@ export async function POST(_request: Request, context: RouteContext) {
   if (companyContext.state === "no_company") return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
   if (companyContext.state === "selection_required") return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat je de uitlezing start.", code: "COMPANY_SELECTION_REQUIRED" }, { status: 409 });
   const companyId = companyContext.companyId;
+
+  const rateLimit = await consumeRateLimit({
+    userId: user.id,
+    companyId,
+    action: "invoice_extract",
+    maxRequests: 30,
+    windowSeconds: 3600,
+  });
+  if (rateLimit.state === "unavailable") return NextResponse.json({ error: "De veiligheidscontrole voor uitlezing is tijdelijk niet beschikbaar. Probeer opnieuw." }, { status: 503 });
+  if (rateLimit.state === "limited") {
+    return NextResponse.json(
+      { error: "Je hebt in korte tijd veel facturen laten uitlezen. Probeer later opnieuw.", code: "RATE_LIMITED" },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+    );
+  }
 
   const { data: invoice, error: invoiceError } = await supabase.from("invoices").select("id, company_id, document_id").eq("id", invoiceId).eq("company_id", companyId).maybeSingle();
   if (invoiceError || !invoice) return NextResponse.json({ error: "Deze factuur is niet beschikbaar voor het gekozen bedrijf." }, { status: 404 });
