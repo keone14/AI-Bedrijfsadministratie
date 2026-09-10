@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveActiveCompany } from "@/lib/company/active-company";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const documentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -43,6 +44,21 @@ export async function POST(request: Request) {
   if (company.state === "no_company") return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
   if (company.state === "selection_required") return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat we deze upload afronden." }, { status: 409 });
   const companyId = company.companyId;
+
+  const rateLimit = await consumeRateLimit({
+    userId: user.id,
+    companyId,
+    action: "invoice_upload_finalize",
+    maxRequests: 60,
+    windowSeconds: 600,
+  });
+  if (rateLimit.state === "unavailable") return NextResponse.json({ error: "De veiligheidscontrole voor uploads is tijdelijk niet beschikbaar. Probeer opnieuw." }, { status: 503 });
+  if (rateLimit.state === "limited") {
+    return NextResponse.json(
+      { error: "Je hebt in korte tijd veel facturen verwerkt. Probeer straks opnieuw." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+    );
+  }
 
   const storageExtension = validatedStorageExtension(storagePath, companyId, documentId);
   if (!storageExtension) return NextResponse.json({ error: "Deze upload hoort niet bij het gekozen bedrijf of heeft een ongeldige opslaglocatie." }, { status: 403 });
