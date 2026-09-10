@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveCompany } from "@/lib/company/active-company";
 import {
   duplicateInvoiceKey,
   groupPossibleDuplicateInvoices,
@@ -36,17 +37,11 @@ export default async function InvoiceDuplicateAlerts() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: memberships, error: membershipError } = await supabase
-    .from("company_members")
-    .select("company_id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(2);
+  const company = await resolveActiveCompany(supabase, user.id);
+  if (company.state === "error") return <DuplicateCheckUnavailable />;
+  if (company.state !== "ready") return null;
 
-  if (membershipError) return <DuplicateCheckUnavailable />;
-  if (!memberships?.length || memberships.length !== 1) return null;
-
-  const companyId = memberships[0].company_id as string;
+  const companyId = company.companyId;
   const invoices: InvoiceCandidate[] = [];
   let offset = 0;
 
