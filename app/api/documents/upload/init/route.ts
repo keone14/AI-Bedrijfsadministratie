@@ -1,16 +1,12 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveCompany } from "@/lib/company/active-company";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const allowedExtensions = new Set(["pdf", "jpg", "jpeg", "png"]);
 const allowedClientMimes = new Set(["application/pdf", "image/jpeg", "image/png", ""]);
-const expectedClientMimeByExtension: Record<string, string> = {
-  pdf: "application/pdf",
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-};
+const expectedClientMimeByExtension: Record<string, string> = { pdf: "application/pdf", jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png" };
 
 function extensionFromName(name: string) {
   const clean = name.trim();
@@ -21,69 +17,30 @@ function extensionFromName(name: string) {
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
-  }
+  if (!user) return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
 
   let body: { filename?: string; size?: number; mimeType?: string };
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Ongeldige uploadaanvraag." }, { status: 400 });
-  }
+  try { body = await request.json(); }
+  catch { return NextResponse.json({ error: "Ongeldige uploadaanvraag." }, { status: 400 }); }
 
   const filename = typeof body.filename === "string" ? body.filename : "";
   const size = typeof body.size === "number" ? body.size : 0;
   const mimeType = typeof body.mimeType === "string" ? body.mimeType : "";
   const extension = extensionFromName(filename);
 
-  if (!filename || !allowedExtensions.has(extension) || !allowedClientMimes.has(mimeType)) {
-    return NextResponse.json({ error: "Gebruik een PDF-, JPG- of PNG-bestand." }, { status: 400 });
-  }
+  if (!filename || !allowedExtensions.has(extension) || !allowedClientMimes.has(mimeType)) return NextResponse.json({ error: "Gebruik een PDF-, JPG- of PNG-bestand." }, { status: 400 });
+  if (mimeType && expectedClientMimeByExtension[extension] !== mimeType) return NextResponse.json({ error: "De bestandsnaam en het bestandstype komen niet overeen. Kies het originele PDF-, JPG- of PNG-bestand opnieuw." }, { status: 400 });
+  if (!Number.isSafeInteger(size) || size < 1 || size > MAX_FILE_SIZE) return NextResponse.json({ error: "Een document mag maximaal 10 MB groot zijn." }, { status: 400 });
 
-  if (mimeType && expectedClientMimeByExtension[extension] !== mimeType) {
-    return NextResponse.json(
-      { error: "De bestandsnaam en het bestandstype komen niet overeen. Kies het originele PDF-, JPG- of PNG-bestand opnieuw." },
-      { status: 400 },
-    );
-  }
+  const company = await resolveActiveCompany(supabase, user.id);
+  if (company.state === "error") return NextResponse.json({ error: "We konden je bedrijf nu niet betrouwbaar bepalen. Probeer opnieuw." }, { status: 500 });
+  if (company.state === "no_company") return NextResponse.json({ error: "Stel eerst je bedrijf in voordat je een document uploadt." }, { status: 409 });
+  if (company.state === "selection_required") return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat je een document uploadt." }, { status: 409 });
 
-  if (!Number.isSafeInteger(size) || size < 1 || size > MAX_FILE_SIZE) {
-    return NextResponse.json({ error: "Een document mag maximaal 10 MB groot zijn." }, { status: 400 });
-  }
-
-  const { data: memberships, error: membershipError } = await supabase
-    .from("company_members")
-    .select("company_id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(2);
-
-  if (membershipError) {
-    return NextResponse.json({ error: "We konden je bedrijf nu niet betrouwbaar bepalen. Probeer opnieuw." }, { status: 500 });
-  }
-
-  if (!memberships?.length) {
-    return NextResponse.json({ error: "Stel eerst je bedrijf in voordat je een document uploadt." }, { status: 409 });
-  }
-
-  if (memberships.length > 1) {
-    return NextResponse.json(
-      { error: "Je hebt toegang tot meerdere bedrijven. Kies eerst welk bedrijf je wilt gebruiken voordat je een document uploadt." },
-      { status: 409 },
-    );
-  }
-
-  const companyId = memberships[0].company_id as string;
+  const companyId = company.companyId;
   const documentId = randomUUID();
   const canonicalExtension = extension === "jpeg" ? "jpg" : extension;
   const storagePath = `company/${companyId}/documents/${documentId}/original.${canonicalExtension}`;
 
-  return NextResponse.json({
-    documentId,
-    storagePath,
-    bucket: "company-documents",
-    maxFileSize: MAX_FILE_SIZE,
-  });
+  return NextResponse.json({ documentId, companyId, storagePath, bucket: "company-documents", maxFileSize: MAX_FILE_SIZE });
 }
