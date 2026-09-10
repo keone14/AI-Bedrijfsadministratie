@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const protectedPaths = [
   "/dashboard",
   "/onboarding",
+  "/bedrijf-kiezen",
   "/facturen",
   "/documenten",
   "/deadlines",
