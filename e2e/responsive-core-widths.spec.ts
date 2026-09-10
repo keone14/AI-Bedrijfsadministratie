@@ -4,7 +4,7 @@ const requiredWidths = [360, 390, 430, 768, 900, 1024, 1440] as const;
 const coreFixtures = [
   { path: "/e2e-dashboard-fixture?confirmed=1", heading: "Dashboard test" },
   { path: "/e2e-review-fixture", heading: "Factuur nakijken" },
-  { path: "/e2e-bulk-upload-fixture", heading: "Facturen upload test" },
+  { path: "/e2e-bulk-upload-fixture", heading: "Bulk upload test" },
 ] as const;
 
 test.describe("kernflows blijven bruikbaar op alle afgesproken schermbreedtes", () => {
