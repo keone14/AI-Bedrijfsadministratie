@@ -59,7 +59,7 @@
 .invoice-read-warning span { font-size: .88rem; line-height: 1.45; }
 .invoice-review-block { display: grid; gap: 12px; }
 .invoice-review-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 2px; }
-.invoice-review-actions .button { flex: 0 0 auto; }
+.invoice-review-actions .button { flex: 0 0 auto; min-height: 44px; }
 .invoice-review-actions > span { max-width: 620px; font-size: .84rem; line-height: 1.45; }
 .button-secondary { background: #fff; color: var(--text); border: 1px solid var(--line); box-shadow: none; }
 .invoice-correction-panel { display: grid; gap: 14px; border: 1px solid #d8e3e8; background: #fbfdfe; border-radius: 12px; padding: 15px; }
@@ -80,6 +80,7 @@
 .invoice-correction-grid input:focus, .invoice-correction-grid select:focus, .invoice-correction-grid textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); }
 .invoice-correction-wide { grid-column: 1 / -1; }
 .invoice-correction-footer { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.invoice-correction-footer .button { min-height: 44px; }
 .invoice-correction-footer > span { font-size: .82rem; line-height: 1.45; }
 .invoice-action-error { width: 100%; color: #b42318 !important; font-weight: 700; }
 .invoice-action-success { width: 100%; color: #027a48; font-size: .86rem; font-weight: 700; }
