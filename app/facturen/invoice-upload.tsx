@@ -41,6 +41,7 @@ function validateFile(file: File) {
 export default function InvoiceUpload() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [results, setResults] = useState<UploadResult[]>([]);
@@ -156,6 +157,7 @@ export default function InvoiceUpload() {
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   }
 
@@ -179,6 +181,14 @@ export default function InvoiceUpload() {
         </div>
         <div className="invoice-filter-actions">
           <a className="button secondary" href="/api/exports/invoices">Exporteer facturen</a>
+          <button
+            className="button secondary mobile-camera-upload"
+            type="button"
+            disabled={busy}
+            onClick={() => cameraInputRef.current?.click()}
+          >
+            Foto maken
+          </button>
           <button className="button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
             {busy ? "Bezig met uploaden..." : "+ Factuur uploaden"}
           </button>
@@ -188,9 +198,20 @@ export default function InvoiceUpload() {
       <input
         ref={inputRef}
         className="visually-hidden"
+        data-upload-source="files"
         type="file"
         multiple
         accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+        onChange={(event) => event.target.files && void handleFiles(event.target.files)}
+      />
+
+      <input
+        ref={cameraInputRef}
+        className="visually-hidden"
+        data-upload-source="camera"
+        type="file"
+        accept="image/jpeg,image/png"
+        capture="environment"
         onChange={(event) => event.target.files && void handleFiles(event.target.files)}
       />
 
@@ -201,7 +222,7 @@ export default function InvoiceUpload() {
         onDrop={onDrop}
       >
         <strong>Sleep facturen hierheen</strong>
-        <span>of gebruik de knop hierboven op gsm of pc.</span>
+        <span>of kies een bestand. Op gsm kun je ook meteen een foto maken.</span>
       </div>
 
       <div className="upload-trust-note">
