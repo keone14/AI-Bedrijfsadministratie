@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveActiveCompany } from "@/lib/company/active-company";
+import { consumeRateLimit } from "@/lib/security/rate-limit";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const allowedExtensions = new Set(["pdf", "jpg", "jpeg", "png"]);
@@ -38,6 +39,21 @@ export async function POST(request: Request) {
   if (company.state === "selection_required") return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat je een document uploadt." }, { status: 409 });
 
   const companyId = company.companyId;
+  const rateLimit = await consumeRateLimit({
+    userId: user.id,
+    companyId,
+    action: "document_upload_init",
+    maxRequests: 30,
+    windowSeconds: 600,
+  });
+  if (rateLimit.state === "unavailable") return NextResponse.json({ error: "De veiligheidscontrole voor uploads is tijdelijk niet beschikbaar. Probeer opnieuw." }, { status: 503 });
+  if (rateLimit.state === "limited") {
+    return NextResponse.json(
+      { error: "Je hebt in korte tijd veel documenten gestart. Probeer straks opnieuw." },
+      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
+    );
+  }
+
   const documentId = randomUUID();
   const canonicalExtension = extension === "jpeg" ? "jpg" : extension;
   const storagePath = `company/${companyId}/documents/${documentId}/original.${canonicalExtension}`;
