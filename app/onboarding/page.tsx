@@ -97,6 +97,18 @@ function normalizeEnterpriseNumber(value: string) {
   return value.replace(/\D/g, "");
 }
 
+function enterpriseNumberWarning(value: string) {
+  const digits = normalizeEnterpriseNumber(value);
+  if (!digits || digits.length !== 10) return null;
+  if (/^[2-8]/.test(digits)) {
+    return "Dit lijkt een vestigingseenheidsnummer, niet je ondernemingsnummer. Beide hebben 10 cijfers, maar volgens FOD Economie begint een ondernemingsnummer met 0 of 1.";
+  }
+  if (!/^[01]/.test(digits)) {
+    return "Dit lijkt geen Belgisch ondernemingsnummer. Volgens FOD Economie bestaat het uit 10 cijfers en begint het met 0 of 1.";
+  }
+  return null;
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
@@ -115,6 +127,8 @@ export default function OnboardingPage() {
     }).length,
     [form],
   );
+
+  const enterpriseWarning = useMemo(() => enterpriseNumberWarning(form.enterpriseNumber), [form.enterpriseNumber]);
 
   useEffect(() => {
     let cancelled = false;
@@ -217,6 +231,18 @@ export default function OnboardingPage() {
       setNotice("Vul een naam in waarmee jij je bedrijf herkent. De officiële naam kun je later nog controleren.");
       return;
     }
+    if (step === 1) {
+      const enterpriseNumber = normalizeEnterpriseNumber(form.enterpriseNumber);
+      if (enterpriseNumber && enterpriseNumber.length !== 10) {
+        setNotice("Een Belgisch ondernemingsnummer moet 10 cijfers bevatten. Controleer het nummer in de KBO of kies ‘Ik weet dit niet’.");
+        return;
+      }
+      const warning = enterpriseNumberWarning(form.enterpriseNumber);
+      if (warning) {
+        setNotice(`${warning} Controleer het in KBO Public Search of kies ‘Ik weet dit niet’.`);
+        return;
+      }
+    }
     setNotice(null);
     setStep((current) => Math.min(current + 1, steps.length - 1));
   }
@@ -233,7 +259,13 @@ export default function OnboardingPage() {
 
     const enterpriseNumber = normalizeEnterpriseNumber(form.enterpriseNumber);
     if (enterpriseNumber && enterpriseNumber.length !== 10) {
-      setNotice("Een Belgisch ondernemingsnummer moet 10 cijfers bevatten. Controleer het nummer in de KBO of kies ‘Ik weet dit niet’. ");
+      setNotice("Een Belgisch ondernemingsnummer moet 10 cijfers bevatten. Controleer het nummer in de KBO of kies ‘Ik weet dit niet’.");
+      setStep(1);
+      return;
+    }
+    const enterpriseValidationWarning = enterpriseNumberWarning(form.enterpriseNumber);
+    if (enterpriseValidationWarning) {
+      setNotice(`${enterpriseValidationWarning} Controleer het nummer in de KBO of kies ‘Ik weet dit niet’.`);
       setStep(1);
       return;
     }
@@ -384,14 +416,21 @@ export default function OnboardingPage() {
                   className="input"
                   id="enterpriseNumber"
                   inputMode="numeric"
+                  aria-describedby={enterpriseWarning ? "enterpriseNumberWarning" : undefined}
+                  aria-invalid={enterpriseWarning ? true : undefined}
                   value={form.enterpriseNumber === "unknown" ? "" : form.enterpriseNumber}
                   onChange={(e) => update("enterpriseNumber", e.target.value)}
                   placeholder={form.enterpriseNumber === "unknown" ? "Nog niet bevestigd" : "bv. 0123.456.789"}
                 />
+                {enterpriseWarning ? (
+                  <div className="notice" id="enterpriseNumberWarning" role="alert">
+                    <strong>Controleer dit nummer.</strong> {enterpriseWarning} <OfficialLink href="https://kbopub.economie.fgov.be/kbopub-m/home?lang=nl">Zoek je onderneming op in KBO Public Search</OfficialLink>.
+                  </div>
+                ) : null}
                 <HelpDetails
                   meaning="Het unieke Belgische nummer van 10 cijfers waarmee je onderneming in de KBO wordt geïdentificeerd."
                   why="Dit is de veiligste basis om je onderneming te koppelen aan officiële bedrijfsgegevens."
-                  check={<>Zoek op naam of adres in <OfficialLink href="https://kbopub.economie.fgov.be/kbopub-m/home?lang=nl">KBO Public Search</OfficialLink>. FOD Economie bevestigt dat een ondernemingsnummer uit 10 cijfers bestaat.</>}
+                  check={<>Zoek op naam of adres in <OfficialLink href="https://kbopub.economie.fgov.be/kbopub-m/home?lang=nl">KBO Public Search</OfficialLink>. FOD Economie bevestigt dat een ondernemingsnummer uit 10 cijfers bestaat en met 0 of 1 begint. Een vestigingseenheidsnummer heeft ook 10 cijfers, maar begint met 2 tot 8.</>}
                   example="Bijvoorbeeld: 0123.456.789."
                   unknown="Kies hieronder “Ik weet dit niet”. We bewaren dit als onbevestigd en gebruiken het niet als officiële waarheid."
                 />
