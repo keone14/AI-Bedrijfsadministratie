@@ -7,7 +7,7 @@ Branch: `bootstrap-v1`
 
 **NIET VERKOOPKLAAR**
 
-De kern van V1 is duidelijk en de belangrijkste lokale quality-, bulk-, actieve-bedrijfscontext- en restore-bewijzen zijn nu aanwezig. De grootste resterende verkoopblokkering is een echte, gescheiden cloud-stagingomgeving. Zonder die omgeving kunnen de laatste RLS/storage- en volledige database-integratietests niet eerlijk als production-like bewezen worden gemarkeerd.
+De kern van V1 is duidelijk en de belangrijkste lokale quality-, bulk-, actieve-bedrijfscontext-, restore- en tenant-isolatiebewijzen zijn nu aanwezig. De grootste resterende verkoopblokkering is een echte, gescheiden cloud-stagingomgeving. Zonder die omgeving kunnen de laatste production-like RLS/storage- en volledige database-integratietests niet eerlijk als dedicated-stagingbewijs worden gemarkeerd.
 
 Deze status is bewust streng. Verkoopklaar betekent hier: overdraagbaar, reproduceerbaar, aantoonbaar veilig en testbaar zonder kennis die alleen bij de huidige eigenaar zit.
 
@@ -36,12 +36,12 @@ Belangrijke productprincipes:
 - Vercel voor webhosting/deployments
 - Zod voor schema-validatie
 - Playwright voor E2E-tests
-- GitHub Actions voor CI en lokale Supabase Restore Drill
+- GitHub Actions voor CI, lokale Supabase Restore Drill en Tenant Isolation Drill
 
 ### Reeds overdraagbare onderdelen
 
 - `.env.example` voor configuratie zonder echte secrets in de repository;
-- versioned Supabase migrations die lokaal vanaf nul worden uitgevoerd in de Restore Drill;
+- versioned Supabase migrations die lokaal vanaf nul worden uitgevoerd in de Restore Drill en Tenant Isolation Drill;
 - private documentflow en server-side documenttoegang;
 - server-side beveiligde factuuracties;
 - centrale actieve bedrijfscontext voor gebruikers met meerdere ondernemingen;
@@ -50,6 +50,7 @@ Belangrijke productprincipes:
 - exacte 20-facturen browserproef met gedeeltelijke fout + gerichte retry;
 - responsive tests voor kernflows;
 - reproduceerbare lokale backup/wis/restore-drill voor app-owned tenantdata en private originele documentbytes;
+- reproduceerbare lokale tenant-isolatiedrill met twee echte synthetische Auth-sessies die cross-company reads/writes en private Storage-toegang probeert te doorbreken;
 - bestaande Source of Truth voor product, UX, architectuur en Belgische regelbronnen.
 
 ## Harde verkoopblokkeringen
@@ -57,8 +58,8 @@ Belangrijke productprincipes:
 ### P0 - Moet opgelost of aantoonbaar getest zijn vóór verkoopklaar
 
 - [ ] **Dedicated cloud stagingomgeving beschikbaar** met gescheiden database/secrets en zonder productieklantdata. Op 2026-09-10 bevestigde Supabase €0/maand voor een extra project, maar creatie werd geblokkeerd door de limiet van twee actieve gratis projecten. Er is niets gepauzeerd, verwijderd of geüpgraded.
-- [ ] **RLS/tenant-isolatie integration proof op dedicated staging**: gebruiker A kan data van bedrijf B nooit lezen, wijzigen of downloaden. Code en eerdere synthetische checks zijn positief, maar dedicated-stagingbewijs ontbreekt.
-- [ ] **Storage-isolatie integration proof op dedicated staging**: verkeerd `company_id`, verkeerd storage path en directe document-URL geven nooit cross-company toegang. Lokale/codechecks vervangen dit production-like bewijs niet.
+- [ ] **RLS/tenant-isolatie integration proof op dedicated staging**: lokaal is dit inmiddels reproduceerbaar groen met twee echte synthetische gebruikers, twee bedrijven en Auth/PostgREST. Gebruiker A en B zien hun eigen data, cross-company reads geven geen rijen terug, cross-company wijziging en documentregistratie worden geblokkeerd. Dedicated-stagingbewijs ontbreekt nog.
+- [ ] **Storage-isolatie integration proof op dedicated staging**: lokaal is private Storage reproduceerbaar groen. Een gebruiker kan het eigen origineel downloaden, maar niet het origineel van het andere bedrijf, niet uploaden in het andere bedrijfspad en niet naar een niet-canoniek storagepad schrijven. Dedicated-stagingbewijs ontbreekt nog.
 - [ ] **Volledige 20-facturen-flow op een schone dedicated stagingdatabase**, inclusief uploads, retries, duplicaten, correcties en dashboardupdate. De browserbulkflow is wel bewezen: exact 20 uploads werken zonder verlies en bij één fout wordt alleen het mislukte bestand opnieuw verstuurd.
 - [x] **Backup + restore-test voor app-owned operationele data en private originele documenten**. GitHub Actions bouwt lokale Supabase vanaf nul, maakt een echte PostgreSQL-backup, wist synthetische tenantdata en het originele storageobject, herstelt beide en controleert kernwaarden plus SHA-256. Dit bewijst niet volledige managed Supabase cloud/Auth disaster recovery.
 - [x] **Eenduidige actieve bedrijfscontext**. De gekozen onderneming wordt server-side tegen actieve memberships gevalideerd en gevoelige kernflows gebruiken expliciet de gekozen `company_id`; routes mogen niet stilletjes het eerste bedrijf kiezen.
@@ -105,6 +106,14 @@ De eerste restore-run vond een echte releaseblokkering: twee migrations deelden 
 
 De drill is bewust beperkt. Hij bewijst geen volledige Supabase-cloudproject-, Auth- of regioherstelprocedure.
 
+### Tenant + private Storage isolation
+
+`Tenant Isolation Drill` gebruikt eveneens alleen lokale Supabase en volledig synthetische data. De drill bouwt de database vanaf nul op, maakt twee afzonderlijke gebruikers en bedrijven, meldt beide gebruikers via de echte lokale Auth API aan en test daarna via de echte lokale REST- en Storage-API's.
+
+Op commit `d2eb4b174abe817bdd93024fa9b75d40de66e1d6` eindigde de drill groen met `TENANT_ISOLATION_PASS`: eigen data was toegankelijk, cross-company reads bleven leeg, cross-company writes werden geblokkeerd en private Storage weigerde toegang tot het andere bedrijf en niet-canonieke paden. Op dezelfde commit waren ook de normale quality-gate en Restore Drill groen.
+
+Dit is sterk lokaal regressiebewijs voor de huidige migrations en policies, maar blijft bewust onderscheiden van een dedicated cloud-stagingtest. Omgevingsconfiguratie, cloudprojectinstellingen en deploymentsecrets worden hierdoor niet bewezen.
+
 ## Handover checklist voor een koper
 
 Een overdracht is pas professioneel wanneer de nieuwe eigenaar zonder mondelinge kennis van de huidige eigenaar kan bepalen:
@@ -115,9 +124,8 @@ Een overdracht is pas professioneel wanneer de nieuwe eigenaar zonder mondelinge
 - welke Vercel projecten en environments bestaan;
 - welke environment variables vereist zijn;
 - hoe migrations worden toegepast en terug gecontroleerd;
-- hoe CI, E2E en Restore Drill worden uitgevoerd;
-- wat de restore-drill wel en niet bewijst;
-- hoe tenant-isolatie wordt getest;
+- hoe CI, E2E, Restore Drill en Tenant Isolation Drill worden uitgevoerd;
+- wat de restore- en tenant-isolatiedrills wel en niet bewijzen;
 - hoe exports werken;
 - waar officiële Belgische regelbronnen worden bijgehouden;
 - welke functies V1 bewust niet uitvoert;
