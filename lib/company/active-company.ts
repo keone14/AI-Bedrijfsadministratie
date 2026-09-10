@@ -35,6 +35,19 @@ export async function resolveActiveCompany(
 }
 
 export function safeReturnPath(value: string | null | undefined) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
+  if (!value) return "/dashboard";
+
+  // Only allow a clean same-origin absolute path. Backslashes can be normalized
+  // into slashes by URL parsers, so values such as `/\\evil.example` must not
+  // be accepted as an internal return destination.
+  if (
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.includes("\\") ||
+    /[\u0000-\u001F\u007F]/.test(value)
+  ) {
+    return "/dashboard";
+  }
+
   return value;
 }
