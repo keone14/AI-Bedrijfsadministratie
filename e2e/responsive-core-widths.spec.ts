@@ -8,11 +8,14 @@ const coreFixtures = [
 ] as const;
 
 test.describe("kernflows blijven bruikbaar op alle afgesproken schermbreedtes", () => {
-  test.skip(({ }, testInfo) => testInfo.project.name !== "desktop", "Breedtematrix draait één keer; de gewone mobile-projecttests blijven daarnaast bestaan.");
-
   for (const width of requiredWidths) {
     for (const fixture of coreFixtures) {
-      test(`${fixture.heading} heeft geen horizontale overflow op ${width}px`, async ({ page }) => {
+      test(`${fixture.heading} heeft geen horizontale overflow op ${width}px`, async ({ page }, testInfo) => {
+        test.skip(
+          testInfo.project.name !== "desktop",
+          "Breedtematrix draait één keer; de gewone mobile-projecttests blijven daarnaast bestaan.",
+        );
+
         await page.setViewportSize({ width, height: width <= 430 ? 844 : 1000 });
         await page.goto(fixture.path);
 
