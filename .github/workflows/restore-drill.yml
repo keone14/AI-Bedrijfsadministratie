@@ -1,0 +1,29 @@
+name: Restore Drill
+
+on:
+  push:
+    branches: [bootstrap-v1]
+    paths:
+      - "supabase/**"
+      - "scripts/restore-drill.sh"
+      - ".github/workflows/restore-drill.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "scripts/restore-drill.sh"
+      - ".github/workflows/restore-drill.yml"
+  workflow_dispatch:
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Prove database and private original restore
+        shell: bash
+        run: bash scripts/restore-drill.sh
