@@ -1,0 +1,33 @@
+name: Observability Drill
+
+on:
+  push:
+    branches: [bootstrap-v1]
+    paths:
+      - "supabase/**"
+      - "lib/observability/**"
+      - "app/api/invoices/**"
+      - "scripts/observability-drill.sh"
+      - ".github/workflows/observability-drill.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "lib/observability/**"
+      - "app/api/invoices/**"
+      - "scripts/observability-drill.sh"
+      - ".github/workflows/observability-drill.yml"
+  workflow_dispatch:
+
+jobs:
+  observability-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Prove operational telemetry privacy and metrics
+        shell: bash
+        run: bash scripts/observability-drill.sh
