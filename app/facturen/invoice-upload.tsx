@@ -166,6 +166,8 @@ export default function InvoiceUpload() {
   }
 
   const completedCount = results.filter((result) => result.status !== "pending").length;
+  const successCount = results.filter((result) => result.status === "success").length;
+  const allFinished = results.length > 0 && completedCount === results.length;
 
   return (
     <section className="card upload-card" aria-labelledby="invoice-upload-title" aria-busy={busy}>
@@ -210,6 +212,12 @@ export default function InvoiceUpload() {
       {results.length ? (
         <div className="upload-results" aria-live="polite">
           {busy ? <div className="upload-progress">{completedCount} van {results.length} verwerkt</div> : null}
+          {!busy && allFinished && failedFiles.length === 0 ? (
+            <div className="upload-progress" role="status">
+              <strong>{successCount} {successCount === 1 ? "factuur is" : "facturen zijn"} veilig toegevoegd.</strong>{" "}
+              Je bent klaar met uploaden. Controleer hieronder alleen facturen die om nakijken vragen.
+            </div>
+          ) : null}
           {!busy && failedFiles.length ? (
             <div className="upload-progress invoice-filter-actions">
               <span>{failedFiles.length} {failedFiles.length === 1 ? "factuur is" : "facturen zijn"} niet gelukt. Succesvolle uploads blijven behouden.</span>
