@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveCompany } from "@/lib/company/active-company";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -8,82 +9,24 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
   const { documentId } = await params;
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
 
-  if (!user) {
-    return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
-  }
+  const company = await resolveActiveCompany(supabase, user.id);
+  if (company.state === "error") return NextResponse.json({ error: "We konden je toegangsrechten nu niet betrouwbaar controleren. Probeer opnieuw. Dit betekent niet dat je document weg is." }, { status: 503 });
+  if (company.state === "no_company") return NextResponse.json({ error: "Dit document kon niet veilig aan een toegankelijk bedrijf gekoppeld worden." }, { status: 403 });
+  if (company.state === "selection_required") return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat je een origineel document opent.", code: "COMPANY_SELECTION_REQUIRED" }, { status: 409 });
 
-  const { data: memberships, error: membershipError } = await supabase
-    .from("company_members")
-    .select("company_id")
-    .eq("user_id", user.id)
-    .eq("status", "active");
+  const companyId = company.companyId;
+  const { data: document, error: documentError } = await supabase.from("documents").select("id, company_id, storage_path").eq("id", documentId).eq("company_id", companyId).maybeSingle();
+  if (documentError) return NextResponse.json({ error: "We konden dit document nu niet betrouwbaar ophalen. Probeer opnieuw. Dit betekent niet dat het document verwijderd is." }, { status: 503 });
+  if (!document) return NextResponse.json({ error: "Document niet gevonden in het gekozen bedrijf." }, { status: 404 });
+  if (!document.storage_path) return NextResponse.json({ error: "Het document bestaat, maar het originele bestand is niet correct gekoppeld. Er is niets automatisch verwijderd." }, { status: 409 });
 
-  if (membershipError) {
-    return NextResponse.json(
-      {
-        error: "We konden je toegangsrechten nu niet betrouwbaar controleren. Probeer opnieuw. Dit betekent niet dat je document weg is.",
-      },
-      { status: 503 },
-    );
-  }
+  const expectedPrefix = `company/${companyId}/documents/${document.id}/`;
+  if (!document.storage_path.startsWith(expectedPrefix)) return NextResponse.json({ error: "De opslaglocatie van dit document klopt niet met de beveiligde bedrijfsmap. Het bestand wordt daarom niet geopend." }, { status: 409 });
 
-  if (!memberships?.length) {
-    return NextResponse.json({ error: "Dit document kon niet veilig aan een toegankelijk bedrijf gekoppeld worden." }, { status: 403 });
-  }
-
-  const companyIds = memberships.map((membership) => membership.company_id as string);
-  const { data: document, error: documentError } = await supabase
-    .from("documents")
-    .select("id, company_id, storage_path")
-    .eq("id", documentId)
-    .in("company_id", companyIds)
-    .maybeSingle();
-
-  if (documentError) {
-    return NextResponse.json(
-      {
-        error: "We konden dit document nu niet betrouwbaar ophalen. Probeer opnieuw. Dit betekent niet dat het document verwijderd is.",
-      },
-      { status: 503 },
-    );
-  }
-
-  if (!document) {
-    return NextResponse.json({ error: "Document niet gevonden of niet toegankelijk." }, { status: 404 });
-  }
-
-  if (!document.storage_path) {
-    return NextResponse.json(
-      {
-        error: "Het document bestaat, maar het originele bestand is niet correct gekoppeld. Er is niets automatisch verwijderd.",
-      },
-      { status: 409 },
-    );
-  }
-
-  const expectedPrefix = `company/${document.company_id}/documents/${document.id}/`;
-  if (!document.storage_path.startsWith(expectedPrefix)) {
-    return NextResponse.json(
-      {
-        error: "De opslaglocatie van dit document klopt niet met de beveiligde bedrijfsmap. Het bestand wordt daarom niet geopend.",
-      },
-      { status: 409 },
-    );
-  }
-
-  const { data: signed, error: signedUrlError } = await supabase.storage
-    .from("company-documents")
-    .createSignedUrl(document.storage_path, 60);
-
-  if (signedUrlError || !signed?.signedUrl) {
-    return NextResponse.json(
-      {
-        error: "Het originele document kon nu niet veilig geopend worden. Probeer opnieuw. Het document is hierdoor niet verwijderd.",
-      },
-      { status: 503 },
-    );
-  }
+  const { data: signed, error: signedUrlError } = await supabase.storage.from("company-documents").createSignedUrl(document.storage_path, 60);
+  if (signedUrlError || !signed?.signedUrl) return NextResponse.json({ error: "Het originele document kon nu niet veilig geopend worden. Probeer opnieuw. Het document is hierdoor niet verwijderd." }, { status: 503 });
 
   const response = NextResponse.redirect(signed.signedUrl, 302);
   response.headers.set("Cache-Control", "private, no-store, max-age=0");
