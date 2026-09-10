@@ -42,6 +42,7 @@ function validateFile(file: File) {
 export default function DocumentUpload() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [results, setResults] = useState<UploadResult[]>([]);
@@ -131,6 +132,7 @@ export default function DocumentUpload() {
     } finally {
       setBusy(false);
       if (inputRef.current) inputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   }
 
@@ -152,6 +154,14 @@ export default function DocumentUpload() {
         </div>
         <div className="document-actions">
           <a className="button secondary" href="/api/exports/documents">Download originelen</a>
+          <button
+            className="button secondary mobile-document-camera"
+            type="button"
+            disabled={busy}
+            onClick={() => cameraInputRef.current?.click()}
+          >
+            Foto maken
+          </button>
           <button className="button" type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
             {busy ? "Bezig met uploaden..." : "+ Document toevoegen"}
           </button>
@@ -169,9 +179,20 @@ export default function DocumentUpload() {
       <input
         ref={inputRef}
         className="visually-hidden"
+        data-upload-source="files"
         type="file"
         multiple
         accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+        onChange={(event) => event.target.files && void handleFiles(event.target.files)}
+      />
+
+      <input
+        ref={cameraInputRef}
+        className="visually-hidden"
+        data-upload-source="camera"
+        type="file"
+        accept="image/jpeg,image/png"
+        capture="environment"
         onChange={(event) => event.target.files && void handleFiles(event.target.files)}
       />
 
@@ -182,7 +203,7 @@ export default function DocumentUpload() {
         onDrop={onDrop}
       >
         <strong>Sleep andere bedrijfsdocumenten hierheen</strong>
-        <span>Geen facturen. Gebruik daarvoor de Facturenpagina.</span>
+        <span>Geen facturen. Op gsm kun je ook meteen een foto maken.</span>
       </div>
 
       <div className="document-upload-note">
