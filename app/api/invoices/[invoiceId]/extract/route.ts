@@ -3,10 +3,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveActiveCompany } from "@/lib/company/active-company";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
+import { recordOperationalEvent } from "@/lib/observability/operational-event";
 import { extractInvoiceWithOpenAI } from "@/lib/invoices/openai-extractor";
 import { extractSyntheticInvoiceFixture } from "@/lib/invoices/synthetic-fixture-extractor";
 
 const supportedMimes = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const ROUTE_KEY = "invoice_extract";
 type RouteContext = { params: Promise<{ invoiceId: string }> };
 type ProcessingConfiguration = { provider: "openai"; apiKey: string; model: string } | { provider: "fixture"; model: "synthetic-fixture-v1" };
 
@@ -19,6 +21,9 @@ function processingConfiguration(): ProcessingConfiguration | null {
   return null;
 }
 function errorCode(error: unknown) { const message = error instanceof Error ? error.message.toLowerCase() : ""; if (message.includes("schema") || message.includes("invalid json")) return "invalid_ai_output"; if (message.includes("file upload")) return "provider_file_upload_failed"; if (message.includes("no structured")) return "empty_ai_output"; if (message.includes("download")) return "document_download_failed"; return "ai_processing_failed"; }
+async function observeRequest(startedAt: number, companyId: string | null, statusCode: number, outcome: "success" | "failure" | "denied" | "accepted", errorCodeValue?: string, entityId?: string) {
+  await recordOperationalEvent({ companyId, eventType: "api_request", routeKey: ROUTE_KEY, outcome, durationMs: Date.now() - startedAt, statusCode, errorCode: errorCodeValue, entityId });
+}
 
 export async function GET() {
   const configuration = processingConfiguration();
@@ -26,6 +31,7 @@ export async function GET() {
 }
 
 export async function POST(_request: Request, context: RouteContext) {
+  const startedAt = Date.now();
   const configuration = processingConfiguration();
   if (!configuration) return NextResponse.json({ error: "AI-uitlezing is nog niet geactiveerd. Er wordt geen document naar een externe AI-dienst gestuurd zolang de serverconfiguratie niet expliciet is ingesteld.", code: "AI_NOT_CONFIGURED" }, { status: 503 });
 
@@ -35,40 +41,65 @@ export async function POST(_request: Request, context: RouteContext) {
   if (!user) return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
 
   const companyContext = await resolveActiveCompany(supabase, user.id);
-  if (companyContext.state === "error") return NextResponse.json({ error: "Je bedrijfsrechten konden niet betrouwbaar gecontroleerd worden." }, { status: 503 });
-  if (companyContext.state === "no_company") return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
-  if (companyContext.state === "selection_required") return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat je de uitlezing start.", code: "COMPANY_SELECTION_REQUIRED" }, { status: 409 });
+  if (companyContext.state === "error") {
+    await observeRequest(startedAt, null, 503, "failure", "company_context_error", invoiceId);
+    return NextResponse.json({ error: "Je bedrijfsrechten konden niet betrouwbaar gecontroleerd worden." }, { status: 503 });
+  }
+  if (companyContext.state === "no_company") {
+    await observeRequest(startedAt, null, 409, "failure", "no_company", invoiceId);
+    return NextResponse.json({ error: "Geen actief bedrijf gevonden." }, { status: 409 });
+  }
+  if (companyContext.state === "selection_required") {
+    await observeRequest(startedAt, null, 409, "failure", "company_selection_required", invoiceId);
+    return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat je de uitlezing start.", code: "COMPANY_SELECTION_REQUIRED" }, { status: 409 });
+  }
   const companyId = companyContext.companyId;
 
-  const rateLimit = await consumeRateLimit({
-    userId: user.id,
-    companyId,
-    action: "invoice_extract",
-    maxRequests: 30,
-    windowSeconds: 3600,
-  });
-  if (rateLimit.state === "unavailable") return NextResponse.json({ error: "De veiligheidscontrole voor uitlezing is tijdelijk niet beschikbaar. Probeer opnieuw." }, { status: 503 });
+  const rateLimit = await consumeRateLimit({ userId: user.id, companyId, action: "invoice_extract", maxRequests: 30, windowSeconds: 3600 });
+  if (rateLimit.state === "unavailable") {
+    await observeRequest(startedAt, companyId, 503, "failure", "rate_limit_unavailable", invoiceId);
+    return NextResponse.json({ error: "De veiligheidscontrole voor uitlezing is tijdelijk niet beschikbaar. Probeer opnieuw." }, { status: 503 });
+  }
   if (rateLimit.state === "limited") {
-    return NextResponse.json(
-      { error: "Je hebt in korte tijd veel facturen laten uitlezen. Probeer later opnieuw.", code: "RATE_LIMITED" },
-      { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } },
-    );
+    await observeRequest(startedAt, companyId, 429, "failure", "rate_limited", invoiceId);
+    return NextResponse.json({ error: "Je hebt in korte tijd veel facturen laten uitlezen. Probeer later opnieuw.", code: "RATE_LIMITED" }, { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } });
   }
 
   const { data: invoice, error: invoiceError } = await supabase.from("invoices").select("id, company_id, document_id").eq("id", invoiceId).eq("company_id", companyId).maybeSingle();
-  if (invoiceError || !invoice) return NextResponse.json({ error: "Deze factuur is niet beschikbaar voor het gekozen bedrijf." }, { status: 404 });
+  if (invoiceError || !invoice) {
+    const durationMs = Date.now() - startedAt;
+    await Promise.all([
+      recordOperationalEvent({ companyId, eventType: "authorization_denied", routeKey: ROUTE_KEY, outcome: "denied", durationMs, statusCode: 404, errorCode: "invoice_not_available", entityId: invoiceId }),
+      recordOperationalEvent({ companyId, eventType: "api_request", routeKey: ROUTE_KEY, outcome: "denied", durationMs, statusCode: 404, errorCode: "invoice_not_available", entityId: invoiceId }),
+    ]);
+    return NextResponse.json({ error: "Deze factuur is niet beschikbaar voor het gekozen bedrijf." }, { status: 404 });
+  }
 
   const [{ data: document }, { data: company }] = await Promise.all([
     supabase.from("documents").select("id, storage_path, mime_type, original_filename").eq("id", invoice.document_id).eq("company_id", companyId).maybeSingle(),
     supabase.from("companies").select("id, name").eq("id", companyId).maybeSingle(),
   ]);
-  if (!document || !company || !supportedMimes.has(document.mime_type)) return NextResponse.json({ error: "Deze factuur kan niet betrouwbaar worden voorbereid voor uitlezing." }, { status: 409 });
+  if (!document || !company || !supportedMimes.has(document.mime_type)) {
+    await observeRequest(startedAt, companyId, 409, "failure", "invoice_not_processable", invoice.id);
+    return NextResponse.json({ error: "Deze factuur kan niet betrouwbaar worden voorbereid voor uitlezing." }, { status: 409 });
+  }
 
   const admin = createSupabaseAdminClient();
   const { data: jobId, error: jobError } = await admin.rpc("mark_invoice_processing", { target_invoice_id: invoice.id, target_provider: configuration.provider, target_model_version: configuration.model });
-  if (jobError) { const alreadyStarted = jobError.message?.toLowerCase().includes("already started"); return NextResponse.json({ error: alreadyStarted ? "Deze factuur wordt al verwerkt of wacht al op controle." : "De verwerking kon niet veilig worden gestart." }, { status: alreadyStarted ? 409 : 500 }); }
+  if (jobError) {
+    const alreadyStarted = jobError.message?.toLowerCase().includes("already started");
+    await observeRequest(startedAt, companyId, alreadyStarted ? 409 : 500, "failure", alreadyStarted ? "already_processing" : "processing_start_failed", invoice.id);
+    return NextResponse.json({ error: alreadyStarted ? "Deze factuur wordt al verwerkt of wacht al op controle." : "De verwerking kon niet veilig worden gestart." }, { status: alreadyStarted ? 409 : 500 });
+  }
+
+  const acceptedDurationMs = Date.now() - startedAt;
+  await Promise.all([
+    recordOperationalEvent({ companyId, eventType: "extraction_started", routeKey: ROUTE_KEY, outcome: "accepted", durationMs: acceptedDurationMs, statusCode: 202, entityId: invoice.id }),
+    recordOperationalEvent({ companyId, eventType: "api_request", routeKey: ROUTE_KEY, outcome: "accepted", durationMs: acceptedDurationMs, statusCode: 202, entityId: invoice.id }),
+  ]);
 
   after(async () => {
+    const processingStartedAt = Date.now();
     try {
       let extraction; let method: string;
       if (configuration.provider === "fixture") { extraction = extractSyntheticInvoiceFixture(); method = "synthetic_fixture_no_external_data"; }
@@ -80,8 +111,11 @@ export async function POST(_request: Request, context: RouteContext) {
       }
       const { error: applyError } = await admin.rpc("apply_validated_invoice_extraction", { target_invoice_id: invoice.id, extraction, extraction_model_version: configuration.model, extraction_method_name: method });
       if (applyError) throw new Error("validated extraction could not be committed");
+      await recordOperationalEvent({ companyId, eventType: "extraction_completed", routeKey: ROUTE_KEY, outcome: "success", durationMs: Date.now() - processingStartedAt, statusCode: 200, entityId: invoice.id });
     } catch (error) {
-      await admin.rpc("mark_invoice_processing_failed", { target_invoice_id: invoice.id, target_error_code: errorCode(error) });
+      const code = errorCode(error);
+      await admin.rpc("mark_invoice_processing_failed", { target_invoice_id: invoice.id, target_error_code: code });
+      await recordOperationalEvent({ companyId, eventType: "extraction_failed", routeKey: ROUTE_KEY, outcome: "failure", durationMs: Date.now() - processingStartedAt, statusCode: 500, errorCode: code, entityId: invoice.id });
     }
   });
 
