@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActiveCompany } from "@/lib/company/active-company";
 import {
   calculateDashboardFinancialSummary,
   currentBelgianMonthPeriod,
@@ -49,7 +50,7 @@ type DashboardData = {
   summary: DashboardFinancialSummary;
   traceInvoices: DashboardTraceInvoice[];
   recentInvoices: InvoiceRow[];
-  companyState: "ready" | "no_company" | "multiple_companies" | "error";
+  companyState: "ready" | "no_company" | "selection_required" | "error";
   totalInvoiceCount: number;
   vatStatus: DashboardVatStatus;
 };
@@ -104,25 +105,19 @@ async function loadDashboardData(): Promise<DashboardData> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return emptyData("error", "error");
 
-    const { data: memberships, error: membershipError } = await supabase
-      .from("company_members")
-      .select("company_id")
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .limit(2);
+    const company = await resolveActiveCompany(supabase, user.id);
+    if (company.state === "error") return emptyData("error", "error");
+    if (company.state === "no_company") return emptyData("no_data", "no_company");
+    if (company.state === "selection_required") return emptyData("error", "selection_required");
 
-    if (membershipError) return emptyData("error", "error");
-    if (!memberships?.length) return emptyData("no_data", "no_company");
-    if (memberships.length > 1) return emptyData("error", "multiple_companies");
-
-    const companyId = memberships[0].company_id as string;
-    const { data: company, error: companyError } = await supabase
+    const companyId = company.companyId;
+    const { data: companyRow, error: companyError } = await supabase
       .from("companies")
       .select("vat_status")
       .eq("id", companyId)
       .single();
     if (companyError) return emptyData("error", "error");
-    const vatStatus = normalizeVatStatus(company?.vat_status ?? null);
+    const vatStatus = normalizeVatStatus(companyRow?.vat_status ?? null);
 
     const invoices: InvoiceRow[] = [];
     let offset = 0;
@@ -212,7 +207,7 @@ export default async function DashboardPage() {
   const issueCount = summary.needsReviewCount + summary.undatedInvoiceCount;
   const dashboardUnavailable = data.companyState !== "ready" || summary.status === "error";
 
-  const statusCopy = data.companyState === "multiple_companies"
+  const statusCopy = data.companyState === "selection_required"
     ? { label: "Kies eerst welk bedrijf je wilt bekijken", detail: "We tellen nooit gegevens van meerdere bedrijven stilletjes bij elkaar op." }
     : data.companyState === "no_company"
       ? { label: "Stel eerst je bedrijf in", detail: "Daarna kunnen we bedragen, facturen en acties veilig aan één onderneming koppelen." }
@@ -224,9 +219,11 @@ export default async function DashboardPage() {
             ? { label: "Je betrouwbare facturen zijn verwerkt", detail: `Het financieel overzicht voor ${summary.period.label} is opnieuw uit de opgeslagen facturen berekend.` }
             : { label: "Nog niet genoeg gegevens voor een financieel overzicht", detail: "Zonder betrouwbare facturen tonen we geen verzonnen bedragen." };
 
-  const unavailableAction = data.companyState === "no_company" || data.companyState === "multiple_companies"
-    ? { href: "/onboarding", label: "Bedrijfsgegevens bekijken" }
-    : { href: "/dashboard", label: "Opnieuw proberen" };
+  const unavailableAction = data.companyState === "selection_required"
+    ? { href: "/bedrijf-kiezen?returnTo=/dashboard", label: "Bedrijf kiezen" }
+    : data.companyState === "no_company"
+      ? { href: "/onboarding", label: "Bedrijf instellen" }
+      : { href: "/dashboard", label: "Opnieuw proberen" };
 
   return (
     <div className="shell">
@@ -252,6 +249,7 @@ export default async function DashboardPage() {
           </div>
           <div className="dashboard-heading-actions">
             <Link className="button secondary" href="/facturen">Facturen bekijken</Link>
+            <Link className="button secondary" href="/bedrijf-kiezen?returnTo=/dashboard">Bedrijf kiezen</Link>
             <Link className="button secondary" href="/onboarding">Bedrijfsgegevens bekijken</Link>
             <LogoutButton />
           </div>
