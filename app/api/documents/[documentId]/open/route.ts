@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveActiveCompany } from "@/lib/company/active-company";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const documentIdSchema = z.string().uuid();
+
 export async function GET(_request: Request, { params }: { params: Promise<{ documentId: string }> }) {
   const { documentId } = await params;
+  const parsedDocumentId = documentIdSchema.safeParse(documentId);
+  if (!parsedDocumentId.success) {
+    return NextResponse.json({ error: "Dit documentnummer is ongeldig. Open het document opnieuw vanuit je documentenlijst." }, { status: 400 });
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
@@ -17,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
   if (company.state === "selection_required") return NextResponse.json({ error: "Kies eerst welk bedrijf je wilt gebruiken voordat je een origineel document opent.", code: "COMPANY_SELECTION_REQUIRED" }, { status: 409 });
 
   const companyId = company.companyId;
-  const { data: document, error: documentError } = await supabase.from("documents").select("id, company_id, storage_path").eq("id", documentId).eq("company_id", companyId).maybeSingle();
+  const { data: document, error: documentError } = await supabase.from("documents").select("id, company_id, storage_path").eq("id", parsedDocumentId.data).eq("company_id", companyId).maybeSingle();
   if (documentError) return NextResponse.json({ error: "We konden dit document nu niet betrouwbaar ophalen. Probeer opnieuw. Dit betekent niet dat het document verwijderd is." }, { status: 503 });
   if (!document) return NextResponse.json({ error: "Document niet gevonden in het gekozen bedrijf." }, { status: 404 });
   if (!document.storage_path) return NextResponse.json({ error: "Het document bestaat, maar het originele bestand is niet correct gekoppeld. Er is niets automatisch verwijderd." }, { status: 409 });
