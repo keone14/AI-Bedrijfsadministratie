@@ -94,7 +94,7 @@ export default function InvoiceUpload() {
       const extractionResponse = await fetch(`/api/invoices/${encodeURIComponent(finalized.invoiceId)}/extract`, {
         method: "POST",
       });
-      const extraction = await extractionResponse.json() as { code?: string; error?: string; message?: string };
+      const extraction = await extractionResponse.json().catch(() => ({})) as { code?: string; error?: string; message?: string };
 
       if (extractionResponse.status === 202) {
         return {
