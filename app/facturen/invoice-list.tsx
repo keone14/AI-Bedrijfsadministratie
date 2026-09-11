@@ -72,6 +72,14 @@ function categoryReason(options: { corrected: boolean; learnedPreferenceApplied:
   return `Er is te weinig duidelijke broninformatie om deze categorie sterk te motiveren. ${options.categoryLabel} is alleen een voorstel op basis van de beperkte beschikbare factuurcontext. Controleer de categorie voordat je de factuur bevestigt.`;
 }
 function normalizeSearch(value: string | undefined) { return (value ?? "").slice(0, 80).replace(/[,%_()"'\\]/g, " ").replace(/\s+/g, " ").trim(); }
+function invoiceAttentionPriority(invoice: InvoiceRow, job: JobRow | undefined, document: DocumentRow | undefined) {
+  if (job?.status === "failed") return 0;
+  if (hasArithmeticMismatch(invoice)) return 1;
+  if (invoice.review_status !== "confirmed" && invoice.review_status !== "auto_verified" && (job?.status === "needs_review" || document?.processing_status === "needs_review")) return 1;
+  if (job?.status === "processing") return 2;
+  if (invoice.review_status !== "confirmed" && invoice.review_status !== "auto_verified") return 3;
+  return 4;
+}
 
 function InvoiceFilters({ categories, filters }: { categories: CategoryRow[]; filters: Required<InvoiceListFilters> }) {
   const active = Boolean(filters.q || filters.type || filters.category || filters.status);
@@ -127,9 +135,14 @@ export default async function InvoiceList({ filters = {} }: { filters?: InvoiceL
   const extractions = new Map<string, ExtractionRow[]>(); for (const row of (extractionResult.data ?? []) as ExtractionRow[]) { const current = extractions.get(row.invoice_id) ?? []; current.push(row); extractions.set(row.invoice_id, current); }
   const correctedFields = new Map<string, Set<string>>(); for (const row of (correctionResult.data ?? []) as CorrectionRow[]) { const current = correctedFields.get(row.invoice_id) ?? new Set<string>(); current.add(row.field_name); correctedFields.set(row.invoice_id, current); }
   const learnedPreferenceInvoices = new Set(((categoryAuditResult.data ?? []) as CategoryAuditRow[]).filter((row) => row.action === "invoice_category_preference_applied" && row.entity_id).map((row) => row.entity_id as string));
+  const sortedInvoices = [...invoices].sort((a, b) => {
+    const priorityDifference = invoiceAttentionPriority(a, jobs.get(a.id), documents.get(a.document_id)) - invoiceAttentionPriority(b, jobs.get(b.id), documents.get(b.document_id));
+    if (priorityDifference !== 0) return priorityDifference;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
-  return <section className="invoice-list-section" aria-labelledby="invoice-list-title"><div className="section-intro"><div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Alleen controleren waar dat echt nodig is</h2></div><p className="muted">Zoek gericht of filter de lijst. De app blijft alleen betrouwbare gegevens als betrouwbaar behandelen en maakt twijfel zichtbaar.</p></div><InvoiceFilters categories={categories} filters={normalizedFilters} />
-    <div className="invoice-card-list">{invoices.map((invoice) => {
+  return <section className="invoice-list-section" aria-labelledby="invoice-list-title"><div className="section-intro"><div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Alleen controleren waar dat echt nodig is</h2></div><p className="muted">Facturen met een fout of controlepunt staan automatisch bovenaan. Binnen dezelfde status blijft de nieuwste factuur eerst staan.</p></div><InvoiceFilters categories={categories} filters={normalizedFilters} />
+    <div className="invoice-card-list">{sortedInvoices.map((invoice) => {
       const job = jobs.get(invoice.id); const document = documents.get(invoice.document_id); const rows = extractions.get(invoice.id) ?? []; const corrected = correctedFields.get(invoice.id) ?? new Set<string>(); const uncertainFields = rows.filter(needsAttention).filter((row) => !corrected.has(row.field_name)); const label = statusLabel(invoice, job, document); const hasExtraction = rows.length > 0 || Boolean(invoice.supplier_name || invoice.customer_name || invoice.total !== null); const isConfirmed = invoice.review_status === "confirmed"; const isAutoVerified = invoice.review_status === "auto_verified"; const requiresReview = job?.status === "needs_review" && !isConfirmed; const canReviewOrCorrect = hasExtraction && !isConfirmed && job?.status !== "processing" && job?.status !== "failed"; const categoryLabel = invoice.category_id ? categoryLabels.get(invoice.category_id) ?? "Onbekende categorie" : null; const amountsMismatch = hasArithmeticMismatch(invoice);
       return <article className="card invoice-record-card" key={invoice.id}><div className="invoice-record-heading"><div><strong>{invoice.supplier_name ?? invoice.customer_name ?? document?.display_name ?? document?.original_filename ?? "Factuur"}</strong><span>{document?.display_name ?? document?.original_filename ?? "Origineel document"}</span></div><span className={`invoice-state ${job?.status === "failed" ? "is-error" : job?.status === "processing" ? "is-processing" : isConfirmed || isAutoVerified ? "is-ok" : "is-review"}`}>{label}</span></div>
       {job?.status === "failed" ? <div className="invoice-read-warning" role="status"><strong>De uitlezing is niet betrouwbaar afgerond.</strong><span>Je originele factuur blijft veilig bewaard. We tonen geen verzonnen gegevens.</span><InvoiceExtractionRetry invoiceId={invoice.id} /></div> : hasExtraction ? <><div className="invoice-confidence-note"><strong>{isConfirmed ? "Jij hebt deze uitlezing bevestigd." : isAutoVerified ? "De automatische controles zijn geslaagd." : "Deze factuur moet nog even nagekeken worden."}</strong><span>{isConfirmed ? "De bevestiging en het tijdstip worden als auditspoor bewaard." : isAutoVerified ? "Je hoeft niets te doen, maar je kunt de gegevens wel aanpassen als je toch iets fout ziet." : confidenceCopy(invoice.extraction_confidence)}</span></div>
