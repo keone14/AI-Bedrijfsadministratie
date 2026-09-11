@@ -24,10 +24,10 @@ export default function DuplicateResolutionButton({ invoiceId, distinct }: Props
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ distinct }),
       });
-      const body = await response.json() as { error?: string };
+      const body = await response.json().catch(() => null) as { error?: string } | null;
 
       if (!response.ok) {
-        setError(body.error ?? "We konden je keuze niet betrouwbaar bewaren.");
+        setError(body?.error ?? "We konden je keuze niet betrouwbaar bewaren.");
         return;
       }
 
