@@ -40,7 +40,7 @@ export default function InvoiceExtractionRetry({ invoiceId }: { invoiceId: strin
       const response = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}/extract`, {
         method: "POST",
       });
-      const result = await response.json() as ExtractionResponse;
+      const result = await response.json().catch(() => ({} as ExtractionResponse)) as ExtractionResponse;
 
       if (response.status === 202) {
         setMessage("Opnieuw gestart. Je factuur wordt nu veilig uitgelezen.");
