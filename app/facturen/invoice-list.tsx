@@ -38,6 +38,7 @@ const fieldLabels: Record<string, string> = {
   documentType: "Documenttype", supplierName: "Leverancier", customerName: "Klant", invoiceNumber: "Factuurnummer", invoiceDate: "Factuurdatum", dueDate: "Vervaldatum", subtotal: "Bedrag zonder btw", vatAmount: "Btw", total: "Totaal", currency: "Valuta", description: "Omschrijving", invoiceType: "Aankoop of verkoop", categoryId: "Categorie",
 };
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const invoiceSelect = "id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, category_id, review_status, extraction_confidence, approved_at, created_at, document_id";
 
 function formatMoney(value: number | null, currency: string | null) {
   if (value === null) return "Niet zeker / niet gevonden";
@@ -105,17 +106,34 @@ export default async function InvoiceList({ filters = {} }: { filters?: InvoiceL
   const categories = (categoryData ?? []) as CategoryRow[];
   if (categoryError) return <InvoiceLoadError categories={[]} filters={normalizedFilters} />;
 
-  let invoiceQuery = supabase.from("invoices").select("id, supplier_name, customer_name, invoice_number, invoice_date, due_date, currency, subtotal, vat_amount, total, description, invoice_type, category_id, review_status, extraction_confidence, approved_at, created_at, document_id").eq("company_id", companyId).order("created_at", { ascending: false }).limit(hasActiveFilters ? 100 : 50);
-  if (normalizedFilters.q) { const pattern = `%${normalizedFilters.q}%`; invoiceQuery = invoiceQuery.or(`supplier_name.ilike.${pattern},customer_name.ilike.${pattern},invoice_number.ilike.${pattern}`); }
-  if (normalizedFilters.type) invoiceQuery = invoiceQuery.eq("invoice_type", normalizedFilters.type);
-  if (normalizedFilters.category) invoiceQuery = invoiceQuery.eq("category_id", normalizedFilters.category);
-  if (normalizedFilters.status === "confirmed") invoiceQuery = invoiceQuery.eq("review_status", "confirmed");
-  if (normalizedFilters.status === "auto_verified") invoiceQuery = invoiceQuery.eq("review_status", "auto_verified");
-  if (normalizedFilters.status === "review") invoiceQuery = invoiceQuery.neq("review_status", "confirmed").neq("review_status", "auto_verified");
+  let invoices: InvoiceRow[] = [];
+  let attentionCount: number | null = null;
 
-  const { data: invoiceData, error: invoiceError } = await invoiceQuery;
-  if (invoiceError) return <InvoiceLoadError categories={categories} filters={normalizedFilters} />;
-  const invoices = (invoiceData ?? []) as InvoiceRow[];
+  if (hasActiveFilters) {
+    let invoiceQuery = supabase.from("invoices").select(invoiceSelect).eq("company_id", companyId).order("created_at", { ascending: false }).limit(100);
+    if (normalizedFilters.q) { const pattern = `%${normalizedFilters.q}%`; invoiceQuery = invoiceQuery.or(`supplier_name.ilike.${pattern},customer_name.ilike.${pattern},invoice_number.ilike.${pattern}`); }
+    if (normalizedFilters.type) invoiceQuery = invoiceQuery.eq("invoice_type", normalizedFilters.type);
+    if (normalizedFilters.category) invoiceQuery = invoiceQuery.eq("category_id", normalizedFilters.category);
+    if (normalizedFilters.status === "confirmed") invoiceQuery = invoiceQuery.eq("review_status", "confirmed");
+    if (normalizedFilters.status === "auto_verified") invoiceQuery = invoiceQuery.eq("review_status", "auto_verified");
+    if (normalizedFilters.status === "review") invoiceQuery = invoiceQuery.neq("review_status", "confirmed").neq("review_status", "auto_verified");
+
+    const { data: invoiceData, error: invoiceError } = await invoiceQuery;
+    if (invoiceError) return <InvoiceLoadError categories={categories} filters={normalizedFilters} />;
+    invoices = (invoiceData ?? []) as InvoiceRow[];
+  } else {
+    const [recentResult, attentionResult, attentionCountResult] = await Promise.all([
+      supabase.from("invoices").select(invoiceSelect).eq("company_id", companyId).order("created_at", { ascending: false }).limit(50),
+      supabase.from("invoices").select(invoiceSelect).eq("company_id", companyId).neq("review_status", "confirmed").neq("review_status", "auto_verified").order("created_at", { ascending: true }).limit(50),
+      supabase.from("invoices").select("id", { count: "exact", head: true }).eq("company_id", companyId).neq("review_status", "confirmed").neq("review_status", "auto_verified"),
+    ]);
+    if (recentResult.error || attentionResult.error || attentionCountResult.error) return <InvoiceLoadError categories={categories} filters={normalizedFilters} />;
+    const merged = new Map<string, InvoiceRow>();
+    for (const row of [...((attentionResult.data ?? []) as InvoiceRow[]), ...((recentResult.data ?? []) as InvoiceRow[])]) merged.set(row.id, row);
+    invoices = Array.from(merged.values());
+    attentionCount = attentionCountResult.count ?? null;
+  }
+
   const categoryLabels = new Map(categories.map((category) => [category.id, category.simple_label]));
 
   if (!invoices.length) return <section className="invoice-list-section" aria-labelledby="invoice-list-title"><div className="section-intro"><div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Vind snel wat je nodig hebt</h2></div><p className="muted">Zoek op leverancier, klant of factuurnummer. Filters werken op de opgeslagen factuurgegevens zodat je niet door alle kaarten hoeft te bladeren.</p></div><InvoiceFilters categories={categories} filters={normalizedFilters} /><section className="card invoices-empty-state"><div className="empty-icon" aria-hidden="true">↥</div><h2>{hasActiveFilters ? "Geen facturen gevonden" : "Nog geen facturen"}</h2><p className="muted">{hasActiveFilters ? "Er past geen factuur bij deze zoekterm en filters. Wis één of meer filters en probeer opnieuw." : "Upload je eerste PDF, JPG of PNG. Het originele document wordt eerst veilig bewaard. Uitlezing blijft apart en onzekerheid wordt niet verborgen."}</p>{hasActiveFilters ? <Link className="button secondary" href="/facturen">Alle facturen tonen</Link> : null}</section></section>;
@@ -141,7 +159,7 @@ export default async function InvoiceList({ filters = {} }: { filters?: InvoiceL
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  return <section className="invoice-list-section" aria-labelledby="invoice-list-title"><div className="section-intro"><div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Alleen controleren waar dat echt nodig is</h2></div><p className="muted">Facturen met een fout of controlepunt staan automatisch bovenaan. Binnen dezelfde status blijft de nieuwste factuur eerst staan.</p></div><InvoiceFilters categories={categories} filters={normalizedFilters} />
+  return <section className="invoice-list-section" aria-labelledby="invoice-list-title"><div className="section-intro"><div><div className="eyebrow">Jouw facturen</div><h2 id="invoice-list-title">Alleen controleren waar dat echt nodig is</h2></div><p className="muted">{!hasActiveFilters && attentionCount !== null && attentionCount > 50 ? `Er vragen ${attentionCount} facturen aandacht. De 50 oudste open controlepunten blijven zichtbaar, samen met je 50 recentste facturen. Werk je er één af, dan schuift de volgende automatisch door.` : "Facturen met een fout of controlepunt staan automatisch bovenaan. Binnen dezelfde status blijft de nieuwste factuur eerst staan."}</p></div><InvoiceFilters categories={categories} filters={normalizedFilters} />
     <div className="invoice-card-list">{sortedInvoices.map((invoice) => {
       const job = jobs.get(invoice.id); const document = documents.get(invoice.document_id); const rows = extractions.get(invoice.id) ?? []; const corrected = correctedFields.get(invoice.id) ?? new Set<string>(); const uncertainFields = rows.filter(needsAttention).filter((row) => !corrected.has(row.field_name)); const label = statusLabel(invoice, job, document); const hasExtraction = rows.length > 0 || Boolean(invoice.supplier_name || invoice.customer_name || invoice.total !== null); const isConfirmed = invoice.review_status === "confirmed"; const isAutoVerified = invoice.review_status === "auto_verified"; const requiresReview = job?.status === "needs_review" && !isConfirmed; const canReviewOrCorrect = hasExtraction && !isConfirmed && job?.status !== "processing" && job?.status !== "failed"; const categoryLabel = invoice.category_id ? categoryLabels.get(invoice.category_id) ?? "Onbekende categorie" : null; const amountsMismatch = hasArithmeticMismatch(invoice);
       return <article className="card invoice-record-card" key={invoice.id}><div className="invoice-record-heading"><div><strong>{invoice.supplier_name ?? invoice.customer_name ?? document?.display_name ?? document?.original_filename ?? "Factuur"}</strong><span>{document?.display_name ?? document?.original_filename ?? "Origineel document"}</span></div><span className={`invoice-state ${job?.status === "failed" ? "is-error" : job?.status === "processing" ? "is-processing" : isConfirmed || isAutoVerified ? "is-ok" : "is-review"}`}>{label}</span></div>
