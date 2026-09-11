@@ -5,7 +5,16 @@ import { resolveActiveCompany } from "@/lib/company/active-company";
 
 type RouteContext = { params: Promise<{ invoiceId: string }> };
 const nullableText = (max: number) => z.string().trim().max(max).nullable();
-const nullableDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
+function isRealIsoDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+const nullableDate = z.string().refine(isRealIsoDate, { message: "Controleer de datum. Gebruik een echte kalenderdatum." }).nullable();
 const nullableMoney = z.number().finite().min(-1_000_000_000_000).max(1_000_000_000_000).nullable();
 const correctionsSchema = z.object({
   documentType: z.enum(["invoice", "credit_note"]).nullable().optional(), supplierName: nullableText(500).optional(), customerName: nullableText(500).optional(), invoiceNumber: nullableText(200).optional(), invoiceDate: nullableDate.optional(), dueDate: nullableDate.optional(), subtotal: nullableMoney.optional(), vatAmount: nullableMoney.optional(), total: nullableMoney.optional(), currency: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/).nullable().optional(), description: nullableText(2000).optional(), invoiceType: z.enum(["purchase", "sale"]).nullable().optional(), categoryId: z.string().uuid().nullable().optional(),
