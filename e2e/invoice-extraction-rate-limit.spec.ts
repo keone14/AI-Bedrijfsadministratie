@@ -20,3 +20,19 @@ test("rate limit toont duidelijke wachttijd en voorkomt herhaald klikken", async
   await expect(page.getByRole("status")).toContainText("Wacht 2 min");
   await expect(page.getByRole("button", { name: /Opnieuw over/ })).toBeDisabled();
 });
+
+test("succesvolle retry blijft succesvol als de server geen leesbare JSON terugstuurt", async ({ page }) => {
+  await page.route("**/api/invoices/invoice-rate-limit-test/extract", async (route) => {
+    await route.fulfill({
+      status: 202,
+      contentType: "text/plain",
+      body: "accepted",
+    });
+  });
+
+  await page.goto("/e2e-extraction-retry-fixture");
+  await page.getByRole("button", { name: "Opnieuw uitlezen" }).click();
+
+  await expect(page.getByRole("status")).toContainText("Opnieuw gestart");
+  await expect(page.getByText(/verbinding werd onderbroken/i)).toHaveCount(0);
+});
