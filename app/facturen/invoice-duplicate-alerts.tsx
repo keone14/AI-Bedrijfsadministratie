@@ -57,6 +57,38 @@ function DuplicateCheckUnavailable() {
   );
 }
 
+function DuplicateGroup({ group }: { group: InvoiceCandidate[] }) {
+  const oldestFirst = [...group].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
+  const referenceInvoice = oldestFirst[0];
+  if (!referenceInvoice) return null;
+
+  const possibleDuplicates = oldestFirst.slice(1);
+
+  return (
+    <div className="invoice-read-warning" key={duplicateInvoiceKey(referenceInvoice) ?? referenceInvoice.id}>
+      <strong>{displayCounterparty(referenceInvoice)} · factuur {referenceInvoice.invoice_number}</strong>
+      <span>
+        {displayInvoiceDate(referenceInvoice.invoice_date)} · {displayInvoiceAmount(referenceInvoice.total, referenceInvoice.currency)}
+      </span>
+      <span>
+        Vergelijk eerst de documenten zelf. Als ze werkelijk dezelfde factuur zijn, hoef je het latere exemplaar niet te vertrouwen. Zijn het toch twee verschillende facturen, open dan het mogelijke duplicaat en bevestig daar dat het een aparte factuur is.
+      </span>
+      <span>
+        <Link href={`/facturen/${referenceInvoice.id}`}>Open eerdere factuur (referentie)</Link>
+        {possibleDuplicates.slice(0, 2).map((candidate, index) => (
+          <span key={candidate.id}>
+            {" · "}
+            <Link href={`/facturen/${candidate.id}`}>Open mogelijk duplicaat {index + 1}</Link>
+          </span>
+        ))}
+      </span>
+      {possibleDuplicates.length > 2 ? (
+        <span>Er zijn nog {possibleDuplicates.length - 2} latere {possibleDuplicates.length - 2 === 1 ? "factuur" : "facturen"} met dezelfde kerngegevens.</span>
+      ) : null}
+    </div>
+  );
+}
+
 export default async function InvoiceDuplicateAlerts() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -93,7 +125,7 @@ export default async function InvoiceDuplicateAlerts() {
 
   const duplicateCount = duplicateGroups.reduce((count, group) => count + group.length - 1, 0);
   const visibleGroups = duplicateGroups.slice(0, visibleDuplicateGroupLimit);
-  const hiddenGroupCount = duplicateGroups.length - visibleGroups.length;
+  const hiddenGroups = duplicateGroups.slice(visibleDuplicateGroupLimit);
 
   return (
     <section className="card invoice-safety-card" aria-labelledby="duplicate-alert-title">
@@ -108,41 +140,16 @@ export default async function InvoiceDuplicateAlerts() {
       </div>
 
       <div className="invoice-card-list">
-        {visibleGroups.map((group) => {
-          const oldestFirst = [...group].sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-          const referenceInvoice = oldestFirst[0];
-          if (!referenceInvoice) return null;
-
-          const possibleDuplicates = oldestFirst.slice(1);
-
-          return (
-            <div className="invoice-read-warning" key={duplicateInvoiceKey(referenceInvoice) ?? referenceInvoice.id}>
-              <strong>{displayCounterparty(referenceInvoice)} · factuur {referenceInvoice.invoice_number}</strong>
-              <span>
-                {displayInvoiceDate(referenceInvoice.invoice_date)} · {displayInvoiceAmount(referenceInvoice.total, referenceInvoice.currency)}
-              </span>
-              <span>
-                Vergelijk eerst de documenten zelf. Als ze werkelijk dezelfde factuur zijn, hoef je het latere exemplaar niet te vertrouwen. Zijn het toch twee verschillende facturen, open dan het mogelijke duplicaat en bevestig daar dat het een aparte factuur is.
-              </span>
-              <span>
-                <Link href={`/facturen/${referenceInvoice.id}`}>Open eerdere factuur (referentie)</Link>
-                {possibleDuplicates.slice(0, 2).map((candidate, index) => (
-                  <span key={candidate.id}>
-                    {" · "}
-                    <Link href={`/facturen/${candidate.id}`}>Open mogelijk duplicaat {index + 1}</Link>
-                  </span>
-                ))}
-              </span>
-              {possibleDuplicates.length > 2 ? (
-                <span>Er zijn nog {possibleDuplicates.length - 2} latere {possibleDuplicates.length - 2 === 1 ? "factuur" : "facturen"} met dezelfde kerngegevens.</span>
-              ) : null}
-            </div>
-          );
-        })}
+        {visibleGroups.map((group) => <DuplicateGroup key={group[0]?.id ?? duplicateInvoiceKey(group[0]) ?? "duplicate-group"} group={group} />)}
       </div>
 
-      {hiddenGroupCount > 0 ? (
-        <p className="muted">Er zijn nog {hiddenGroupCount} andere {hiddenGroupCount === 1 ? "groep" : "groepen"} met mogelijke duplicaten. De teller hierboven bevat ze al.</p>
+      {hiddenGroups.length > 0 ? (
+        <details className="help-details">
+          <summary>Bekijk ook de andere {hiddenGroups.length} {hiddenGroups.length === 1 ? "groep" : "groepen"} met mogelijke duplicaten</summary>
+          <div className="help-details-body invoice-card-list">
+            {hiddenGroups.map((group) => <DuplicateGroup key={group[0]?.id ?? duplicateInvoiceKey(group[0]) ?? "hidden-duplicate-group"} group={group} />)}
+          </div>
+        </details>
       ) : null}
     </section>
   );
