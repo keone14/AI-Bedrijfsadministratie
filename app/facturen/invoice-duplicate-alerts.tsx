@@ -65,7 +65,7 @@ function DuplicateGroup({ group }: { group: InvoiceCandidate[] }) {
   const possibleDuplicates = oldestFirst.slice(1);
 
   return (
-    <div className="invoice-read-warning" key={duplicateInvoiceKey(referenceInvoice) ?? referenceInvoice.id}>
+    <div className="invoice-read-warning">
       <strong>{displayCounterparty(referenceInvoice)} · factuur {referenceInvoice.invoice_number}</strong>
       <span>
         {displayInvoiceDate(referenceInvoice.invoice_date)} · {displayInvoiceAmount(referenceInvoice.total, referenceInvoice.currency)}
@@ -140,14 +140,14 @@ export default async function InvoiceDuplicateAlerts() {
       </div>
 
       <div className="invoice-card-list">
-        {visibleGroups.map((group) => <DuplicateGroup key={group[0]?.id ?? duplicateInvoiceKey(group[0]) ?? "duplicate-group"} group={group} />)}
+        {visibleGroups.map((group, index) => <DuplicateGroup key={group[0]?.id ?? `duplicate-group-${index}`} group={group} />)}
       </div>
 
       {hiddenGroups.length > 0 ? (
         <details className="help-details">
           <summary>Bekijk ook de andere {hiddenGroups.length} {hiddenGroups.length === 1 ? "groep" : "groepen"} met mogelijke duplicaten</summary>
           <div className="help-details-body invoice-card-list">
-            {hiddenGroups.map((group) => <DuplicateGroup key={group[0]?.id ?? duplicateInvoiceKey(group[0]) ?? "hidden-duplicate-group"} group={group} />)}
+            {hiddenGroups.map((group, index) => <DuplicateGroup key={group[0]?.id ?? `hidden-duplicate-group-${index}`} group={group} />)}
           </div>
         </details>
       ) : null}
