@@ -27,15 +27,19 @@ function displayInvoiceDate(value: string | null) {
 
 function displayInvoiceAmount(total: number | null, currency: string | null) {
   if (total === null || !Number.isFinite(total)) return "bedrag niet bevestigd";
+  const normalizedCurrency = currency?.trim().toUpperCase() ?? "";
+  if (!normalizedCurrency) {
+    return `${new Intl.NumberFormat("nl-BE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(total)} (valuta niet bevestigd)`;
+  }
   try {
     return new Intl.NumberFormat("nl-BE", {
       style: "currency",
-      currency: currency || "EUR",
+      currency: normalizedCurrency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(total);
   } catch {
-    return `${total.toFixed(2)} ${currency || "EUR"}`;
+    return `${total.toFixed(2)} ${normalizedCurrency}`;
   }
 }
 
