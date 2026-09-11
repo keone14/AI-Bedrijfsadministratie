@@ -18,6 +18,27 @@ function displayCounterparty(invoice: InvoiceCandidate) {
   return invoice.supplier_name ?? invoice.customer_name ?? "Onbekende partij";
 }
 
+function displayInvoiceDate(value: string | null) {
+  if (!value) return "datum niet bevestigd";
+  const parsed = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return "datum niet bevestigd";
+  return new Intl.DateTimeFormat("nl-BE", { day: "2-digit", month: "2-digit", year: "numeric" }).format(parsed);
+}
+
+function displayInvoiceAmount(total: number | null, currency: string | null) {
+  if (total === null || !Number.isFinite(total)) return "bedrag niet bevestigd";
+  try {
+    return new Intl.NumberFormat("nl-BE", {
+      style: "currency",
+      currency: currency || "EUR",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(total);
+  } catch {
+    return `${total.toFixed(2)} ${currency || "EUR"}`;
+  }
+}
+
 function DuplicateCheckUnavailable() {
   return (
     <section className="card invoice-safety-card" role="status" aria-labelledby="duplicate-check-error-title">
@@ -93,6 +114,9 @@ export default async function InvoiceDuplicateAlerts() {
           return (
             <div className="invoice-read-warning" key={duplicateInvoiceKey(referenceInvoice) ?? referenceInvoice.id}>
               <strong>{displayCounterparty(referenceInvoice)} · factuur {referenceInvoice.invoice_number}</strong>
+              <span>
+                {displayInvoiceDate(referenceInvoice.invoice_date)} · {displayInvoiceAmount(referenceInvoice.total, referenceInvoice.currency)}
+              </span>
               <span>
                 Vergelijk eerst de documenten zelf. Als ze werkelijk dezelfde factuur zijn, hoef je het latere exemplaar niet te vertrouwen. Zijn het toch twee verschillende facturen, open dan het mogelijke duplicaat en bevestig daar dat het een aparte factuur is.
               </span>
