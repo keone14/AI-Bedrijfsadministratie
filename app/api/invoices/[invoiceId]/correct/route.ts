@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveActiveCompany } from "@/lib/company/active-company";
 
 type RouteContext = { params: Promise<{ invoiceId: string }> };
+const invoiceIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const nullableText = (max: number) => z.string().trim().max(max).nullable();
 function isRealIsoDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -38,6 +39,8 @@ export async function POST(request: Request, context: RouteContext) {
   const companyId = company.companyId;
 
   const { invoiceId } = await context.params;
+  if (!invoiceIdPattern.test(invoiceId)) return NextResponse.json({ error: "Dit factuurnummer is ongeldig. Open de factuur opnieuw vanuit je facturenlijst." }, { status: 400 });
+
   const { data: invoice, error: invoiceError } = await supabase.from("invoices").select("id").eq("id", invoiceId).eq("company_id", companyId).maybeSingle();
   if (invoiceError) return NextResponse.json({ error: "De factuur kon niet betrouwbaar gecontroleerd worden." }, { status: 400 });
   if (!invoice) return NextResponse.json({ error: "Deze factuur is niet beschikbaar voor het gekozen bedrijf." }, { status: 404 });
