@@ -4,8 +4,17 @@ import { resolveActiveCompany } from "@/lib/company/active-company";
 
 type RouteContext = { params: Promise<{ invoiceId: string }> };
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(_request: Request, context: RouteContext) {
   const { invoiceId } = await context.params;
+  if (!UUID_PATTERN.test(invoiceId)) {
+    return NextResponse.json(
+      { error: "Dit factuurnummer is ongeldig. Open de factuur opnieuw vanuit je facturenlijst." },
+      { status: 400 },
+    );
+  }
+
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Je sessie is verlopen. Log opnieuw in." }, { status: 401 });
