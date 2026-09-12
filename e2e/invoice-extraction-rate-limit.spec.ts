@@ -36,3 +36,15 @@ test("succesvolle retry blijft succesvol als de server geen leesbare JSON terugs
   await expect(page.getByRole("status")).toContainText("Opnieuw gestart");
   await expect(page.getByText(/verbinding werd onderbroken/i)).toHaveCount(0);
 });
+
+test("verbindingsverlies doet niet alsof uitlezen zeker niet gestart is", async ({ page }) => {
+  await page.route("**/api/invoices/invoice-rate-limit-test/extract", async (route) => {
+    await route.abort("connectionfailed");
+  });
+
+  await page.goto("/e2e-extraction-retry-fixture");
+  await page.getByRole("button", { name: "Opnieuw uitlezen" }).click();
+
+  await expect(page.getByRole("status")).toContainText("Het uitlezen kan al gestart zijn");
+  await expect(page.getByRole("status")).toContainText("probeer alleen opnieuw als de status niet verandert");
+});
