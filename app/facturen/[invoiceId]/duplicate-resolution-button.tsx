@@ -33,7 +33,8 @@ export default function DuplicateResolutionButton({ invoiceId, distinct }: Props
 
       router.refresh();
     } catch {
-      setError("De verbinding werd onderbroken. Er is niets aan je factuurstatus veranderd.");
+      setError("De verbinding werd onderbroken. Je keuze is mogelijk wel opgeslagen. We verversen de factuur zodat je de actuele status kunt controleren.");
+      router.refresh();
     } finally {
       setBusy(false);
     }
