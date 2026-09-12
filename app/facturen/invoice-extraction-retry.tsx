@@ -63,7 +63,8 @@ export default function InvoiceExtractionRetry({ invoiceId }: { invoiceId: strin
 
       setMessage(result.error ?? "Opnieuw uitlezen lukte nu niet. Je factuur blijft veilig bewaard.");
     } catch {
-      setMessage("De verbinding werd onderbroken. Probeer opnieuw wanneer je verbinding stabiel is.");
+      setMessage("De verbinding werd onderbroken. Het uitlezen kan al gestart zijn. We verversen de factuurstatus; probeer alleen opnieuw als de status niet verandert.");
+      router.refresh();
     } finally {
       setBusy(false);
     }
