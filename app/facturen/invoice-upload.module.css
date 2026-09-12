@@ -1,0 +1,9 @@
+.mobileCameraUpload {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .mobileCameraUpload {
+    display: inline-flex;
+  }
+}

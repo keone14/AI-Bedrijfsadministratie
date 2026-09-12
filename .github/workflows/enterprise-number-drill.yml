@@ -1,0 +1,29 @@
+name: Enterprise Number Guard Drill
+
+on:
+  push:
+    branches: [bootstrap-v1]
+    paths:
+      - "supabase/**"
+      - "scripts/enterprise-number-drill.sh"
+      - ".github/workflows/enterprise-number-drill.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "scripts/enterprise-number-drill.sh"
+      - ".github/workflows/enterprise-number-drill.yml"
+  workflow_dispatch:
+
+jobs:
+  enterprise-number-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Prove enterprise-number data integrity
+        shell: bash
+        run: bash scripts/enterprise-number-drill.sh
